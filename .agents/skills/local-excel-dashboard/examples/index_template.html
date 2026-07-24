@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — [Tên Dự Án]</title>
+  <meta name="description" content="Dashboard phân tích dữ liệu từ file Excel nội bộ.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-logo"><i class="fas fa-chart-pie"></i></div>
+      <div class="brand-text">
+        <h1>TÊN DASHBOARD</h1>
+        <p>
+          <i class="fas fa-file-excel" style="color:#10b981"></i> Nguồn: data.xlsx
+          <span id="sync-badge" style="margin-left:12px; padding:2px 8px; background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); border-radius:12px; font-size:0.75rem;">
+            <i class="fas fa-sync-alt fa-spin"></i> Đang kết nối...
+          </span>
+        </p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <!-- NÚT LÀM MỚI DỮ LIỆU — BẮT BUỘC PHẢI CÓ -->
+      <button class="btn btn-refresh" id="btn-refresh" title="Đọc lại dữ liệu từ file Excel">
+        <i class="fas fa-sync-alt" id="icon-refresh"></i> Làm Mới Dữ Liệu
+      </button>
+      <button class="btn btn-primary" id="btn-export">
+        <i class="fas fa-file-csv"></i> Xuất CSV
+      </button>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <!-- Bộ lọc -->
+    <section class="filter-bar">
+      <div class="filter-group">
+        <label for="filter-year"><i class="far fa-calendar-alt"></i> Lọc Theo Năm</label>
+        <select id="filter-year" class="filter-select">
+          <option value="ALL">-- Tất Cả --</option>
+        </select>
+      </div>
+      <!-- Thêm filter khác theo nhu cầu -->
+      <div class="filter-group" style="flex-direction:row">
+        <button class="btn" id="btn-reset" style="width:100%">
+          <i class="fas fa-undo"></i> Đặt Lại
+        </button>
+      </div>
+    </section>
+
+    <!-- KPI Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card" style="--card-accent: var(--accent-blue);">
+        <div class="kpi-header">
+          <span class="kpi-title">TỔNG THÀNH TIỀN</span>
+          <div class="kpi-icon"><i class="fas fa-coins"></i></div>
+        </div>
+        <div class="kpi-value" id="kpi-total">0 ₫</div>
+        <div class="kpi-sub">Tổng ngân sách</div>
+      </div>
+      <!-- Thêm KPI card theo nhu cầu -->
+    </section>
+
+    <!-- Bảng Chi Tiết -->
+    <section class="glass-card">
+      <div class="card-header">
+        <div class="card-title"><i class="fas fa-list"></i> DANH SÁCH CHI TIẾT</div>
+        <div id="table-info" style="font-size:0.85rem; color:var(--text-muted)"></div>
+      </div>
+      <div class="data-table-container">
+        <table class="data-table" id="detail-table">
+          <thead>
+            <tr>
+              <!-- 9 cột chuẩn — tuỳ chỉnh theo dữ liệu -->
+              <th data-sort="col_a">Cột A <i class="fas fa-sort"></i></th>
+              <th data-sort="col_b">Cột B <i class="fas fa-sort"></i></th>
+              <!-- ... -->
+            </tr>
+          </thead>
+          <tbody id="detail-tbody"></tbody>
+          <!-- tfoot TỔNG CỘNG — BẮT BUỘC -->
+          <tfoot id="detail-tfoot"></tfoot>
+        </table>
+      </div>
+      <div class="table-footer">
+        <div style="font-size:0.82rem; color:var(--text-dim)">Trang hiển thị 12 mục / lần</div>
+        <div class="pagination-controls" id="pagination-btns"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>Dashboard &copy; 2026</p>
+  </footer>
+
+  <!-- Scripts — DÙNG Date.now() CHỐNG CACHE -->
+  <script>
+    document.write('<script src="dashboard_data.js?v=' + Date.now() + '"><\/script>');
+    document.write('<script src="app.js?v=' + Date.now() + '"><\/script>');
+  </script>
+</body>
+</html>
