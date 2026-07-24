@@ -4,7 +4,7 @@
 
 - **Tên dự án**: AI AGI_2
 - **Thư mục**: `D:\AI AGI_2`
-- **GitHub**: https://github.com/hoten08031984-lab/AI-AGI
+- **GitHub**: https://github.com/hoten08031984-lab/AI-AGI-2
 - **Branch mặc định**: `main`
 - **Chủ sở hữu**: hoten08031984-lab
 
