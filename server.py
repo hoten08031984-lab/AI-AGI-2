@@ -37,7 +37,6 @@ PORT = 8080
 DIRECTORY = BASE_DIR
 EXCEL_PATH = os.path.join(BASE_DIR, "THEO DOI HOP DONG-2_Optimized.xlsx")
 JS_DATA_PATH = os.path.join(BASE_DIR, "dashboard_data.js")
-JSON_DATA_PATH = os.path.join(BASE_DIR, "dashboard_data.json")
 
 last_mtime = 0
 last_check_time = 0
@@ -203,9 +202,6 @@ def extract_excel_data(force=False):
             'total_rows': len(processed_items)
         }
         
-        with open(JSON_DATA_PATH, 'w', encoding='utf-8') as f:
-            json.dump(processed_items, f, ensure_ascii=False, indent=2)
-
         with open(JS_DATA_PATH, 'w', encoding='utf-8') as f:
             f.write(f'window.SYNC_INFO = {json.dumps(sync_info, ensure_ascii=False)};\n')
             f.write('window.RAW_DATA = ' + json.dumps(processed_items, ensure_ascii=False) + ';')

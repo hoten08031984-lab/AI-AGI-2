@@ -6,7 +6,10 @@ let currentFilters = {
   year: 'ALL',
   category: 'ALL',
   warehouse: 'ALL',
-  search: ''
+  search: '',
+  thang: 'ALL',
+  tieu_muc: 'ALL',
+  chi_tiet_hd: 'ALL'
 };
 
 let tableState = {
@@ -16,11 +19,6 @@ let tableState = {
   sortDir: 'asc'
 };
 
-// Chart instances
-let chartCategoryYear = null;
-let chartDonutCategory = null;
-let chartMonthlyTrend = null;
-let chartTopWarehouse = null;
 
 // Formatters
 const formatVND = (amount) => {
@@ -136,6 +134,63 @@ function updateDependentDropdowns() {
     currentFilters.warehouse = 'ALL';
     selWh.value = 'ALL';
   }
+
+  // 3. Populate Tháng dropdown (from currently filtered data after year+cat+wh)
+  let thangData = whData;
+  if (currentFilters.warehouse !== 'ALL') thangData = thangData.filter(i => i.kho === currentFilters.warehouse);
+  const validThangs = Array.from(new Set(thangData.map(i => i.thang).filter(Boolean)))
+    .sort((a, b) => {
+      // sort by year then month numerically: "1/2024" -> [2024, 1]
+      const parse = s => { const p = s.split('/'); return p.length === 2 ? [+p[1], +p[0]] : [0,0]; };
+      const [ya, ma] = parse(a); const [yb, mb] = parse(b);
+      return ya !== yb ? ya - yb : ma - mb;
+    });
+  const selThang = document.getElementById('filter-thang');
+  if (selThang) {
+    const cur = currentFilters.thang;
+    selThang.innerHTML = '<option value="ALL">-- Tất Cả Tháng --</option>';
+    validThangs.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      if (t === cur) opt.selected = true;
+      selThang.appendChild(opt);
+    });
+    if (cur !== 'ALL' && !validThangs.includes(cur)) { currentFilters.thang = 'ALL'; selThang.value = 'ALL'; }
+  }
+
+  // 4. Populate Tiểu mục CP dropdown
+  let tieuMucData = thangData;
+  if (currentFilters.thang !== 'ALL') tieuMucData = tieuMucData.filter(i => i.thang === currentFilters.thang);
+  const validTieuMuc = Array.from(new Set(tieuMucData.map(i => i.tieu_muc).filter(Boolean))).sort();
+  const selTieuMuc = document.getElementById('filter-tieu-muc');
+  if (selTieuMuc) {
+    const cur = currentFilters.tieu_muc;
+    selTieuMuc.innerHTML = '<option value="ALL">-- Tất Cả Tiểu Mục --</option>';
+    validTieuMuc.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      if (t === cur) opt.selected = true;
+      selTieuMuc.appendChild(opt);
+    });
+    if (cur !== 'ALL' && !validTieuMuc.includes(cur)) { currentFilters.tieu_muc = 'ALL'; selTieuMuc.value = 'ALL'; }
+  }
+
+  // 5. Populate Chi tiết HĐ dropdown
+  let chiTietData = tieuMucData;
+  if (currentFilters.tieu_muc !== 'ALL') chiTietData = chiTietData.filter(i => i.tieu_muc === currentFilters.tieu_muc);
+  const validChiTiet = Array.from(new Set(chiTietData.map(i => (i.chi_tiet_hd || i.chi_tiet || '')).filter(Boolean))).sort();
+  const selChiTiet = document.getElementById('filter-chi-tiet-hd');
+  if (selChiTiet) {
+    const cur = currentFilters.chi_tiet_hd;
+    selChiTiet.innerHTML = '<option value="ALL">-- Tất Cả Chi Tiết --</option>';
+    validChiTiet.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t.length > 50 ? t.substring(0,50) + '...' : t;
+      if (t === cur) opt.selected = true;
+      selChiTiet.appendChild(opt);
+    });
+    if (cur !== 'ALL' && !validChiTiet.includes(cur)) { currentFilters.chi_tiet_hd = 'ALL'; selChiTiet.value = 'ALL'; }
+  }
 }
 
 function setOfValues(key) {
@@ -175,7 +230,13 @@ function setupEventListeners() {
     document.getElementById('filter-category').value = 'ALL';
     document.getElementById('filter-warehouse').value = 'ALL';
     document.getElementById('filter-search').value = '';
-    currentFilters = { year: 'ALL', category: 'ALL', warehouse: 'ALL', search: '' };
+    const elThang = document.getElementById('filter-thang');
+    const elTieuMuc = document.getElementById('filter-tieu-muc');
+    const elChiTiet = document.getElementById('filter-chi-tiet-hd');
+    if (elThang) elThang.value = 'ALL';
+    if (elTieuMuc) elTieuMuc.value = 'ALL';
+    if (elChiTiet) elChiTiet.value = 'ALL';
+    currentFilters = { year: 'ALL', category: 'ALL', warehouse: 'ALL', search: '', thang: 'ALL', tieu_muc: 'ALL', chi_tiet_hd: 'ALL' };
     applyFilters();
   });
 
@@ -192,6 +253,14 @@ function setupEventListeners() {
   }
 
   document.getElementById('btn-export').addEventListener('click', exportToCSV);
+
+  // Event listeners for 3 new table-level filters
+  const elThang = document.getElementById('filter-thang');
+  const elTieuMuc = document.getElementById('filter-tieu-muc');
+  const elChiTiet = document.getElementById('filter-chi-tiet-hd');
+  if (elThang) elThang.addEventListener('change', (e) => { currentFilters.thang = e.target.value; applyFilters(); });
+  if (elTieuMuc) elTieuMuc.addEventListener('change', (e) => { currentFilters.tieu_muc = e.target.value; applyFilters(); });
+  if (elChiTiet) elChiTiet.addEventListener('change', (e) => { currentFilters.chi_tiet_hd = e.target.value; applyFilters(); });
 
   // Table header sorting
   document.querySelectorAll('#detail-table th[data-sort]').forEach(th => {
@@ -216,6 +285,12 @@ function applyFilters() {
     if (currentFilters.year !== 'ALL' && String(item.nam) !== String(currentFilters.year)) return false;
     if (currentFilters.category !== 'ALL' && item.loai_cp !== currentFilters.category) return false;
     if (currentFilters.warehouse !== 'ALL' && item.kho !== currentFilters.warehouse) return false;
+    if (currentFilters.thang !== 'ALL' && item.thang !== currentFilters.thang) return false;
+    if (currentFilters.tieu_muc !== 'ALL' && item.tieu_muc !== currentFilters.tieu_muc) return false;
+    if (currentFilters.chi_tiet_hd !== 'ALL') {
+      const val = item.chi_tiet_hd || item.chi_tiet || '';
+      if (val !== currentFilters.chi_tiet_hd) return false;
+    }
 
     if (currentFilters.search) {
       const s = currentFilters.search;
@@ -236,7 +311,6 @@ function applyFilters() {
 
   updateKPIs();
   renderMatrixPivot();
-  renderCharts();
   renderDataTable();
 }
 

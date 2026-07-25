@@ -17,8 +17,7 @@
   <!-- Custom Styles System -->
   <link rel="stylesheet" href="index.css">
 
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 <body>
 
@@ -145,48 +144,7 @@
       </div>
     </section>
 
-    <!-- Visual Charts Grid Section -->
-    <section class="charts-grid">
-      <!-- Chart 1: Bar Chart by Category & Year -->
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-chart-bar"></i> So Sánh Chi Phí Các Loại CP Qua Các Năm</div>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="chartCategoryYear"></canvas>
-        </div>
-      </div>
 
-      <!-- Chart 2: Donut % Share -->
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-chart-pie"></i> Cơ Cấu Tỷ Trọng Theo Loại Chi Phí</div>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="chartDonutCategory"></canvas>
-        </div>
-      </div>
-
-      <!-- Chart 3: Top Warehouses -->
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-warehouse"></i> Top Địa Điểm / Kho Phát Sinh Chi Phí Nhiều Nhất</div>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="chartTopWarehouse"></canvas>
-        </div>
-      </div>
-
-      <!-- Chart 4: Monthly Trend -->
-      <div class="glass-card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-chart-line"></i> Xu Hướng Chi Phí Theo Tháng</div>
-        </div>
-        <div class="chart-wrapper">
-          <canvas id="chartMonthlyTrend"></canvas>
-        </div>
-      </div>
-    </section>
 
     <!-- Detailed Transactions Data Table -->
     <section class="glass-card">
@@ -195,6 +153,28 @@
           <i class="fas fa-list"></i> DANH SÁCH CHI TIẾT CÁC MỤC THANH TOÁN
         </div>
         <div id="table-info" style="font-size:0.85rem; color:var(--text-muted); font-weight:600"></div>
+      </div>
+
+      <!-- Bộ lọc nhanh của bảng chi tiết -->
+      <div class="table-filter-bar">
+        <div class="filter-group">
+          <label for="filter-thang"><i class="fas fa-calendar"></i> Tháng</label>
+          <select id="filter-thang" class="filter-select">
+            <option value="ALL">-- Tất Cả Tháng --</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-tieu-muc"><i class="fas fa-tags"></i> Tiểu Mục CP</label>
+          <select id="filter-tieu-muc" class="filter-select">
+            <option value="ALL">-- Tất Cả Tiểu Mục --</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-chi-tiet-hd"><i class="fas fa-file-contract"></i> Chi Tiết HĐ</label>
+          <select id="filter-chi-tiet-hd" class="filter-select">
+            <option value="ALL">-- Tất Cả Chi Tiết --</option>
+          </select>
+        </div>
       </div>
 
       <div class="data-table-container">
