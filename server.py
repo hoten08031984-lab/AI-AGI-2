@@ -31,6 +31,41 @@ def normalize_loai_cp(val):
         return 'Phí bảo trì'
     return s
 
+def format_so_hd(val):
+    s = clean_str(val)
+    if not s:
+        return ''
+    if s.endswith('.0'):
+        return s[:-2]
+    try:
+        f = float(s)
+        if f.is_integer():
+            return str(int(f))
+    except:
+        pass
+    return s
+
+def format_ngay_hd(val):
+    s = clean_str(val)[:10]
+    if not s or s.lower() == 'none':
+        return ''
+    import re
+    m_iso = re.match(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})', s)
+    if m_iso:
+        return f"{m_iso.group(3).zfill(2)}-{m_iso.group(2).zfill(2)}-{m_iso.group(1)}"
+    m_mdy = re.match(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})', s)
+    if m_mdy:
+        p1, p2, yyyy = int(m_mdy.group(1)), int(m_mdy.group(2)), m_mdy.group(3)
+        if p1 > 12:
+            dd, mm = str(p1).zfill(2), str(p2).zfill(2)
+        elif p2 > 12:
+            mm, dd = str(p1).zfill(2), str(p2).zfill(2)
+        else:
+            mm, dd = str(p1).zfill(2), str(p2).zfill(2)
+        return f"{dd}-{mm}-{yyyy}"
+    return s
+
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = 8080
@@ -141,8 +176,8 @@ def extract_excel_data(force=False):
             loai_cp = normalize_loai_cp(raw_loai_cp)
 
             tieu_muc = clean_str(r_padded[1])
-            so_hd = clean_str(r_padded[2])
-            ngay_hd = clean_str(r_padded[3])[:10]
+            so_hd = format_so_hd(r_padded[2])
+            ngay_hd = format_ngay_hd(r_padded[3])
             thang = clean_str(r_padded[4])
             ly_do = clean_str(r_padded[5])
             chi_tiet = clean_str(r_padded[6])

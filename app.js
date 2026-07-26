@@ -33,6 +33,52 @@ const formatShortVND = (amount) => {
   return amount.toLocaleString('vi-VN') + ' ₫';
 };
 
+const formatSoHD = (val) => {
+  if (val === undefined || val === null || val === '') return '-';
+  let s = String(val).trim();
+  if (s.endsWith('.0')) {
+    s = s.slice(0, -2);
+  } else if (/^\d+\.0+$/.test(s)) {
+    s = s.replace(/\.0+$/, '');
+  }
+  return s || '-';
+};
+
+const formatDateDDMMYYYY = (val) => {
+  if (!val || val === '-' || val === 'None') return '-';
+  let s = String(val).trim();
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s;
+
+  const isoMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const yyyy = isoMatch[1];
+    const mm = isoMatch[2].padStart(2, '0');
+    const dd = isoMatch[3].padStart(2, '0');
+    return `${dd}-${mm}-${yyyy}`;
+  }
+
+  const mdyMatch = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (mdyMatch) {
+    const p1 = parseInt(mdyMatch[1], 10);
+    const p2 = parseInt(mdyMatch[2], 10);
+    const yyyy = mdyMatch[3];
+    let dd, mm;
+    if (p1 > 12) {
+      dd = String(p1).padStart(2, '0');
+      mm = String(p2).padStart(2, '0');
+    } else if (p2 > 12) {
+      mm = String(p1).padStart(2, '0');
+      dd = String(p2).padStart(2, '0');
+    } else {
+      mm = String(p1).padStart(2, '0');
+      dd = String(p2).padStart(2, '0');
+    }
+    return `${dd}-${mm}-${yyyy}`;
+  }
+
+  return s;
+};
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   initFilterDropdowns();
@@ -644,8 +690,8 @@ function renderDataTable() {
         <tr>
           <td><span class="badge badge-emerald">${item.thang || '-'}</span></td>
           <td>${item.tieu_muc || '-'}</td>
-          <td><strong>${item.so_hd || '-'}</strong></td>
-          <td>${item.ngay_hd || '-'}</td>
+          <td><strong>${formatSoHD(item.so_hd)}</strong></td>
+          <td>${formatDateDDMMYYYY(item.ngay_hd)}</td>
           <td title="${lyDo}">${lyDo.length > 30 ? lyDo.substring(0, 30) + '...' : lyDo}</td>
           <td title="${chiTietHD}">${chiTietHD.length > 30 ? chiTietHD.substring(0, 30) + '...' : chiTietHD}</td>
           <td style="font-weight:600; text-align:right; color:#38bdf8">${formatVND(item.st_no_vat)}</td>
@@ -720,8 +766,8 @@ function exportToCSV() {
       item.id,
       `"${item.loai_cp.replace(/"/g, '""')}"`,
       `"${item.tieu_muc.replace(/"/g, '""')}"`,
-      `"${item.so_hd.replace(/"/g, '""')}"`,
-      `"${item.ngay_hd}"`,
+      `"${formatSoHD(item.so_hd).replace(/"/g, '""')}"`,
+      `"${formatDateDDMMYYYY(item.ngay_hd)}"`,
       `"${item.thang}"`,
       `"${item.ly_do.replace(/"/g, '""')}"`,
       `"${item.chi_tiet.replace(/"/g, '""')}"`,
