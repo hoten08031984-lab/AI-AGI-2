@@ -6,3 +6,4 @@ __pycache__/
 CHI_data.csv
 CHI_data.json
 dashboard_data.json
+~$*.xlsx
