@@ -488,33 +488,33 @@ function updateKPIs() {
   document.getElementById('kpi-top-category-sub').textContent = topCatAmt > 0 ? `Tổng: ${formatShortVND(topCatAmt)}` : '';
 }
 
-// Render Matrix Pivot Table (Loại CP x Năm)
+// Render Matrix Pivot Table (Kho / Địa Điểm x Năm)
 function renderMatrixPivot() {
   const years = [2023, 2024, 2025, 2026].filter(y => {
     if (currentFilters.year !== 'ALL') return String(y) === String(currentFilters.year);
     return true;
   });
 
-  // Group filtered data by Category and Year
+  // Group filtered data by Warehouse (Kho) and Year
   const matrix = {};
-  const catTotals = {};
+  const khoTotals = {};
   const yearTotals = {};
   years.forEach(y => yearTotals[y] = 0);
   let grandTotal = 0;
 
   filteredData.forEach(item => {
-    const cat = item.loai_cp;
+    const kho = item.kho || 'Khác';
     const yr = item.nam;
 
-    if (!matrix[cat]) {
-      matrix[cat] = {};
-      years.forEach(y => matrix[cat][y] = 0);
-      catTotals[cat] = 0;
+    if (!matrix[kho]) {
+      matrix[kho] = {};
+      years.forEach(y => matrix[kho][y] = 0);
+      khoTotals[kho] = 0;
     }
 
-    if (matrix[cat][yr] !== undefined) {
-      matrix[cat][yr] += (item.st_vat || 0);
-      catTotals[cat] += (item.st_vat || 0);
+    if (matrix[kho][yr] !== undefined) {
+      matrix[kho][yr] += (item.st_vat || 0);
+      khoTotals[kho] += (item.st_vat || 0);
       yearTotals[yr] += (item.st_vat || 0);
       grandTotal += (item.st_vat || 0);
     }
@@ -524,22 +524,22 @@ function renderMatrixPivot() {
   const thead = document.getElementById('matrix-thead');
   const tbody = document.getElementById('matrix-tbody');
 
-  let headHTML = `<tr><th>Loại Chi Phí (Cột A)</th>`;
+  let headHTML = `<tr><th>Kho / Địa Điểm</th>`;
   years.forEach(y => headHTML += `<th style="text-align:right">Năm ${y}</th>`);
   headHTML += `<th style="text-align:right">TỔNG CỘNG</th><th style="text-align:right">% TỶ TRỌNG</th></tr>`;
   thead.innerHTML = headHTML;
 
   let bodyHTML = '';
-  const sortedCategories = Object.keys(matrix).sort((a, b) => catTotals[b] - catTotals[a]);
+  const sortedKho = Object.keys(matrix).sort((a, b) => khoTotals[b] - khoTotals[a]);
 
-  sortedCategories.forEach(cat => {
-    const tot = catTotals[cat];
+  sortedKho.forEach(kho => {
+    const tot = khoTotals[kho];
     const pct = grandTotal > 0 ? ((tot / grandTotal) * 100).toFixed(1) + '%' : '0%';
 
     bodyHTML += `<tr>`;
-    bodyHTML += `<td><strong>${cat}</strong></td>`;
+    bodyHTML += `<td><strong>${kho}</strong></td>`;
     years.forEach(y => {
-      const val = matrix[cat][y];
+      const val = matrix[kho][y];
       bodyHTML += `<td>${val > 0 ? formatShortVND(val) : '-'}</td>`;
     });
     bodyHTML += `<td class="highlight">${formatVND(tot)}</td>`;
