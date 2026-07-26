@@ -7,9 +7,9 @@ let currentFilters = {
   category: 'ALL',
   warehouse: 'ALL',
   search: '',
-  thang: 'ALL',
-  tieu_muc: 'ALL',
-  chi_tiet_hd: 'ALL'
+  thang: new Set(),
+  tieu_muc: new Set(),
+  chi_tiet_hd: new Set()
 };
 
 let tableState = {
@@ -181,62 +181,130 @@ function updateDependentDropdowns() {
     selWh.value = 'ALL';
   }
 
-  // 3. Populate Tháng dropdown (from currently filtered data after year+cat+wh)
+  // 3. Populate Tháng MultiSelect
   let thangData = whData;
   if (currentFilters.warehouse !== 'ALL') thangData = thangData.filter(i => i.kho === currentFilters.warehouse);
   const validThangs = Array.from(new Set(thangData.map(i => i.thang).filter(Boolean)))
     .sort((a, b) => {
-      // sort by year then month numerically: "1/2024" -> [2024, 1]
       const parse = s => { const p = s.split('/'); return p.length === 2 ? [+p[1], +p[0]] : [0,0]; };
       const [ya, ma] = parse(a); const [yb, mb] = parse(b);
       return ya !== yb ? ya - yb : ma - mb;
     });
-  const selThang = document.getElementById('filter-thang');
-  if (selThang) {
-    const cur = currentFilters.thang;
-    selThang.innerHTML = '<option value="ALL">-- Tất Cả Tháng --</option>';
-    validThangs.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t; opt.textContent = t;
-      if (t === cur) opt.selected = true;
-      selThang.appendChild(opt);
-    });
-    if (cur !== 'ALL' && !validThangs.includes(cur)) { currentFilters.thang = 'ALL'; selThang.value = 'ALL'; }
-  }
+  window._validThangs = validThangs;
+  renderMsOptions('thang', validThangs, '-- Tất Cả Tháng --', 'tháng');
 
-  // 4. Populate Tiểu mục CP dropdown
+  // 4. Populate Tiểu mục CP MultiSelect
   let tieuMucData = thangData;
-  if (currentFilters.thang !== 'ALL') tieuMucData = tieuMucData.filter(i => i.thang === currentFilters.thang);
+  if (currentFilters.thang.size > 0) tieuMucData = tieuMucData.filter(i => currentFilters.thang.has(i.thang));
   const validTieuMuc = Array.from(new Set(tieuMucData.map(i => i.tieu_muc).filter(Boolean))).sort();
-  const selTieuMuc = document.getElementById('filter-tieu-muc');
-  if (selTieuMuc) {
-    const cur = currentFilters.tieu_muc;
-    selTieuMuc.innerHTML = '<option value="ALL">-- Tất Cả Tiểu Mục --</option>';
-    validTieuMuc.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t; opt.textContent = t;
-      if (t === cur) opt.selected = true;
-      selTieuMuc.appendChild(opt);
-    });
-    if (cur !== 'ALL' && !validTieuMuc.includes(cur)) { currentFilters.tieu_muc = 'ALL'; selTieuMuc.value = 'ALL'; }
+  window._validTieuMuc = validTieuMuc;
+  renderMsOptions('tieu_muc', validTieuMuc, '-- Tất Cả Tiểu Mục --', 'tiểu mục');
+
+  // 5. Populate Chi tiết HĐ MultiSelect
+  let chiTietData = tieuMucData;
+  if (currentFilters.tieu_muc.size > 0) chiTietData = chiTietData.filter(i => currentFilters.tieu_muc.has(i.tieu_muc));
+  const validChiTiet = Array.from(new Set(chiTietData.map(i => (i.chi_tiet_hd || i.chi_tiet || '')).filter(Boolean))).sort();
+  window._validChiTiet = validChiTiet;
+  renderMsOptions('chi_tiet_hd', validChiTiet, '-- Tất Cả Chi Tiết --', 'chi tiết');
+}
+
+// MultiSelect Helper Functions
+function toggleMsDropdown(key) {
+  const container = document.getElementById(`ms-container-${key}`);
+  if (!container) return;
+  const isActive = container.classList.contains('active');
+  document.querySelectorAll('.ms-container').forEach(c => c.classList.remove('active'));
+  if (!isActive) {
+    container.classList.add('active');
+    const searchInput = document.getElementById(`ms-search-${key}`);
+    if (searchInput) {
+      searchInput.value = '';
+      filterMsOptions(key, '');
+      searchInput.focus();
+    }
+  }
+}
+
+function filterMsOptions(key, query) {
+  const container = document.getElementById(`ms-options-${key}`);
+  if (!container) return;
+  const q = query.toLowerCase().trim();
+  container.querySelectorAll('.ms-option').forEach(opt => {
+    const text = opt.textContent.toLowerCase();
+    opt.style.display = text.includes(q) ? 'flex' : 'none';
+  });
+}
+
+function renderMsOptions(key, validValues, defaultLabel, singularUnit) {
+  const optionsDiv = document.getElementById(`ms-options-${key}`);
+  if (!optionsDiv) return;
+
+  const currentSet = currentFilters[key];
+
+  // Remove invalid values from currentSet
+  const validSet = new Set(validValues);
+  for (let val of currentSet) {
+    if (!validSet.has(val)) currentSet.delete(val);
   }
 
-  // 5. Populate Chi tiết HĐ dropdown
-  let chiTietData = tieuMucData;
-  if (currentFilters.tieu_muc !== 'ALL') chiTietData = chiTietData.filter(i => i.tieu_muc === currentFilters.tieu_muc);
-  const validChiTiet = Array.from(new Set(chiTietData.map(i => (i.chi_tiet_hd || i.chi_tiet || '')).filter(Boolean))).sort();
-  const selChiTiet = document.getElementById('filter-chi-tiet-hd');
-  if (selChiTiet) {
-    const cur = currentFilters.chi_tiet_hd;
-    selChiTiet.innerHTML = '<option value="ALL">-- Tất Cả Chi Tiết --</option>';
-    validChiTiet.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t; opt.textContent = t.length > 50 ? t.substring(0,50) + '...' : t;
-      if (t === cur) opt.selected = true;
-      selChiTiet.appendChild(opt);
-    });
-    if (cur !== 'ALL' && !validChiTiet.includes(cur)) { currentFilters.chi_tiet_hd = 'ALL'; selChiTiet.value = 'ALL'; }
+  if (validValues.length === 0) {
+    optionsDiv.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); padding:0.5rem; text-align:center;">Không có dữ liệu</div>';
+  } else {
+    optionsDiv.innerHTML = validValues.map(val => {
+      const isChecked = currentSet.has(val);
+      const displayVal = val.length > 60 ? val.substring(0, 60) + '...' : val;
+      return `
+        <label class="ms-option">
+          <input type="checkbox" data-key="${key}" data-val="${encodeURIComponent(val)}" ${isChecked ? 'checked' : ''} onchange="onMsChange('${key}', this)">
+          <span class="ms-option-text" title="${val}">${displayVal}</span>
+        </label>
+      `;
+    }).join('');
   }
+
+  updateMsLabel(key, validValues, defaultLabel, singularUnit);
+}
+
+function updateMsLabel(key, validValues, defaultLabel, singularUnit) {
+  const labelSpan = document.getElementById(`ms-label-${key}`);
+  if (!labelSpan) return;
+
+  const currentSet = currentFilters[key];
+  const count = currentSet.size;
+
+  if (count === 0 || count === validValues.length) {
+    labelSpan.textContent = defaultLabel;
+    labelSpan.classList.remove('has-selection');
+  } else if (count === 1) {
+    labelSpan.textContent = Array.from(currentSet)[0];
+    labelSpan.classList.add('has-selection');
+  } else if (count === 2) {
+    labelSpan.textContent = Array.from(currentSet).join(', ');
+    labelSpan.classList.add('has-selection');
+  } else {
+    labelSpan.textContent = `Đã chọn (${count}) ${singularUnit}`;
+    labelSpan.classList.add('has-selection');
+  }
+}
+
+function onMsChange(key, checkbox) {
+  const val = decodeURIComponent(checkbox.getAttribute('data-val'));
+  if (checkbox.checked) {
+    currentFilters[key].add(val);
+  } else {
+    currentFilters[key].delete(val);
+  }
+  applyFilters();
+}
+
+function selectAllMs(key, validValues) {
+  validValues.forEach(val => currentFilters[key].add(val));
+  applyFilters();
+}
+
+function clearMs(key) {
+  currentFilters[key].clear();
+  applyFilters();
 }
 
 function setOfValues(key) {
@@ -276,13 +344,15 @@ function setupEventListeners() {
     document.getElementById('filter-category').value = 'ALL';
     document.getElementById('filter-warehouse').value = 'ALL';
     document.getElementById('filter-search').value = '';
-    const elThang = document.getElementById('filter-thang');
-    const elTieuMuc = document.getElementById('filter-tieu-muc');
-    const elChiTiet = document.getElementById('filter-chi-tiet-hd');
-    if (elThang) elThang.value = 'ALL';
-    if (elTieuMuc) elTieuMuc.value = 'ALL';
-    if (elChiTiet) elChiTiet.value = 'ALL';
-    currentFilters = { year: 'ALL', category: 'ALL', warehouse: 'ALL', search: '', thang: 'ALL', tieu_muc: 'ALL', chi_tiet_hd: 'ALL' };
+    currentFilters = {
+      year: 'ALL',
+      category: 'ALL',
+      warehouse: 'ALL',
+      search: '',
+      thang: new Set(),
+      tieu_muc: new Set(),
+      chi_tiet_hd: new Set()
+    };
     applyFilters();
   });
 
@@ -300,13 +370,44 @@ function setupEventListeners() {
 
   document.getElementById('btn-export').addEventListener('click', exportToCSV);
 
-  // Event listeners for 3 new table-level filters
-  const elThang = document.getElementById('filter-thang');
-  const elTieuMuc = document.getElementById('filter-tieu-muc');
-  const elChiTiet = document.getElementById('filter-chi-tiet-hd');
-  if (elThang) elThang.addEventListener('change', (e) => { currentFilters.thang = e.target.value; applyFilters(); });
-  if (elTieuMuc) elTieuMuc.addEventListener('change', (e) => { currentFilters.tieu_muc = e.target.value; applyFilters(); });
-  if (elChiTiet) elChiTiet.addEventListener('change', (e) => { currentFilters.chi_tiet_hd = e.target.value; applyFilters(); });
+  // MultiSelect dropdown event listeners
+  ['thang', 'tieu_muc', 'chi_tiet_hd'].forEach(key => {
+    const trigger = document.getElementById(`ms-trigger-${key}`);
+    if (trigger) {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMsDropdown(key);
+      });
+    }
+
+    const dropdown = document.getElementById(`ms-dropdown-${key}`);
+    if (dropdown) {
+      dropdown.addEventListener('click', (e) => e.stopPropagation());
+    }
+
+    const searchInput = document.getElementById(`ms-search-${key}`);
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => filterMsOptions(key, e.target.value));
+    }
+
+    const btnAll = document.getElementById(`ms-btn-all-${key}`);
+    if (btnAll) {
+      btnAll.addEventListener('click', () => {
+        const valid = key === 'thang' ? window._validThangs : (key === 'tieu_muc' ? window._validTieuMuc : window._validChiTiet);
+        selectAllMs(key, valid || []);
+      });
+    }
+
+    const btnClear = document.getElementById(`ms-btn-clear-${key}`);
+    if (btnClear) {
+      btnClear.addEventListener('click', () => clearMs(key));
+    }
+  });
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.ms-container').forEach(c => c.classList.remove('active'));
+  });
 
   // Table header sorting
   document.querySelectorAll('#detail-table th[data-sort]').forEach(th => {
@@ -331,11 +432,11 @@ function applyFilters() {
     if (currentFilters.year !== 'ALL' && String(item.nam) !== String(currentFilters.year)) return false;
     if (currentFilters.category !== 'ALL' && item.loai_cp !== currentFilters.category) return false;
     if (currentFilters.warehouse !== 'ALL' && item.kho !== currentFilters.warehouse) return false;
-    if (currentFilters.thang !== 'ALL' && item.thang !== currentFilters.thang) return false;
-    if (currentFilters.tieu_muc !== 'ALL' && item.tieu_muc !== currentFilters.tieu_muc) return false;
-    if (currentFilters.chi_tiet_hd !== 'ALL') {
+    if (currentFilters.thang.size > 0 && !currentFilters.thang.has(item.thang)) return false;
+    if (currentFilters.tieu_muc.size > 0 && !currentFilters.tieu_muc.has(item.tieu_muc)) return false;
+    if (currentFilters.chi_tiet_hd.size > 0) {
       const val = item.chi_tiet_hd || item.chi_tiet || '';
-      if (val !== currentFilters.chi_tiet_hd) return false;
+      if (!currentFilters.chi_tiet_hd.has(val)) return false;
     }
 
     if (currentFilters.search) {
