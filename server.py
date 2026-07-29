@@ -6,9 +6,29 @@ import json
 import sys
 import threading
 import unicodedata
+import logging
+import subprocess
 import openpyxl
 
-sys.stdout.reconfigure(encoding='utf-8')
+# --- Logging: ghi ra cả console và file để debug khi chạy pythonw ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_PATH = os.path.join(BASE_DIR, 'server.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(message)s',
+    datefmt='%H:%M:%S',
+    handlers=[
+        logging.FileHandler(LOG_PATH, encoding='utf-8', mode='w'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+log = logging.getLogger('dashboard')
+
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
 def clean_str(val):
     if val is None:
@@ -67,7 +87,6 @@ def format_ngay_hd(val):
 
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PORT = 8080
 DIRECTORY = BASE_DIR
 EXCEL_PATH = os.path.join(BASE_DIR, "THEO DOI HOP DONG-2_Optimized.xlsx")
@@ -97,69 +116,82 @@ def extract_excel_data(force=False):
         if not force and current_mtime <= last_mtime:
             return False  # No change
 
-        print(f"[{time.strftime('%H:%M:%S')}] Phát hiện kiểm tra Excel (Force={force})! Đang đọc và cập nhật dữ liệu...")
+        log.info(f"Phát hiện kiểm tra Excel (Force={force})! Đang đọc và cập nhật dữ liệu...")
         
         vals = None
         abs_src = os.path.abspath(EXCEL_PATH)
 
+        # --- Strategy: Try openpyxl FIRST (fast, no COM), fall back to win32com ---
         try:
-            import pythoncom
-            import win32com.client as win32
+            wb_ox = openpyxl.load_workbook(abs_src, data_only=True)
+            if 'CHI' in wb_ox.sheetnames:
+                ws_ox = wb_ox['CHI']
+                vals = [list(row) for row in ws_ox.iter_rows(values_only=True)]
+                log.info(f"  -> Đọc thành công bằng openpyxl.")
+            wb_ox.close()
+        except Exception as e_ox:
+            log.warning(f"  -> openpyxl không đọc được ({e_ox}), thử win32com...")
 
-            for attempt in range(5):
-                pythoncom.CoInitialize()
-                excel = None
-                wb = None
-                try:
-                    try:
-                        excel = win32.GetActiveObject('Excel.Application')
-                    except:
-                        excel = win32.DispatchEx('Excel.Application')
-                        excel.Visible = False
-                        excel.DisplayAlerts = False
-                        excel.AutomationSecurity = 1
-
-                    wb_found = None
-                    try:
-                        for open_wb in excel.Workbooks:
-                            if open_wb.FullName.lower() == abs_src.lower():
-                                wb_found = open_wb
-                                break
-                    except:
-                        pass
-
-                    if wb_found:
-                        wb = wb_found
-                        close_wb = False
-                    else:
-                        wb = excel.Workbooks.Open(abs_src, 0, True)
-                        close_wb = True
-
-                    time.sleep(0.5)
-                    ws = wb.Sheets('CHI')
-                    vals = ws.UsedRange.Value
-                    if close_wb:
-                        try: wb.Close(False)
-                        except: pass
-                    break
-                except Exception as e_attempt:
-                    print(f"Lần thử {attempt+1} đọc Excel bị hoãn: {e_attempt}")
-                    time.sleep(1.0)
-                finally:
-                    pythoncom.CoUninitialize()
-        except Exception as e_com:
-            print(f"Lỗi win32com: {e_com}, đang dùng openpyxl...")
+        # If openpyxl failed (e.g. file locked by Excel), try win32com
+        if not vals:
             try:
-                wb_ox = openpyxl.load_workbook(abs_src, data_only=True)
-                if 'CHI' in wb_ox.sheetnames:
-                    ws_ox = wb_ox['CHI']
-                    vals = [list(row) for row in ws_ox.iter_rows(values_only=True)]
-            except Exception as e_ox:
-                print(f"Lỗi openpyxl: {e_ox}")
-                return False
+                import pythoncom
+                import win32com.client as win32
 
+                for attempt in range(3):
+                    pythoncom.CoInitialize()
+                    _excel = None
+                    _wb = None
+                    close_wb = False
+                    try:
+                        try:
+                            _excel = win32.GetActiveObject('Excel.Application')
+                        except:
+                            _excel = win32.DispatchEx('Excel.Application')
+                            _excel.Visible = False
+                            _excel.DisplayAlerts = False
+                            _excel.AutomationSecurity = 1
+
+                        wb_found = None
+                        try:
+                            for open_wb in _excel.Workbooks:
+                                if open_wb.FullName.lower() == abs_src.lower():
+                                    wb_found = open_wb
+                                    break
+                        except:
+                            pass
+
+                        if wb_found:
+                            _wb = wb_found
+                            close_wb = False
+                        else:
+                            _wb = _excel.Workbooks.Open(abs_src, 0, True)
+                            close_wb = True
+
+                        time.sleep(0.5)
+                        ws = _wb.Sheets('CHI')
+                        vals = ws.UsedRange.Value
+                        log.info(f"  -> Đọc thành công bằng win32com.")
+                        if close_wb:
+                            try: _wb.Close(False)
+                            except: pass
+                        break
+                    except Exception as e_attempt:
+                        log.warning(f"  Lần thử {attempt+1} đọc Excel bị hoãn: {e_attempt}")
+                        time.sleep(1.0)
+                    finally:
+                        try:
+                            if close_wb and _wb:
+                                _wb.Close(False)
+                        except: pass
+                        pythoncom.CoUninitialize()
+            except ImportError:
+                log.info(f"  -> win32com không khả dụng, bỏ qua.")
+            except Exception as e_com:
+                log.error(f"  -> Lỗi win32com: {e_com}")
 
         if not vals:
+            log.error(f"  -> Không đọc được dữ liệu Excel từ bất kỳ phương thức nào.")
             return False
 
         rows = [list(r) for r in vals if r and any(x is not None for x in r)]
@@ -242,18 +274,12 @@ def extract_excel_data(force=False):
             f.write('window.RAW_DATA = ' + json.dumps(processed_items, ensure_ascii=False) + ';')
 
         last_mtime = current_mtime
-        print(f"[{time.strftime('%H:%M:%S')}] Cập nhật thành công! Tổng số {len(processed_items)} dòng.")
+        log.info(f"Cập nhật thành công! Tổng số {len(processed_items)} dòng.")
         return True
     except Exception as e:
-        print(f"Lỗi khi đọc file Excel: {e}")
+        log.error(f"Lỗi khi đọc file Excel: {e}", exc_info=True)
         return False
     finally:
-        if wb:
-            try: wb.Close(False)
-            except: pass
-        if excel:
-            try: excel.Quit()
-            except: pass
         extract_lock.release()
 
 
@@ -280,18 +306,54 @@ class AutoUpdateHandler(http.server.SimpleHTTPRequestHandler):
             elif self.path in ('/', '/index.html') or self.path.startswith('/index.html'):
                 extract_excel_data(force=True)
         except Exception as e:
-            print(f"Lỗi trong do_GET: {e}")
+            log.error(f"Lỗi trong do_GET: {e}")
         return super().do_GET()
 
-if __name__ == '__main__':
+def kill_old_server_on_port(port):
+    """Kill any existing process using the given port to avoid Address-already-in-use."""
     try:
-        extract_excel_data()
+        result = subprocess.run(
+            ['netstat', '-ano'],
+            capture_output=True, text=True, timeout=5
+        )
+        for line in result.stdout.splitlines():
+            if f':{port}' in line and 'LISTENING' in line:
+                parts = line.strip().split()
+                pid = parts[-1]
+                if pid.isdigit() and int(pid) != os.getpid():
+                    log.info(f"Đang tắt server cũ (PID {pid}) trên port {port}...")
+                    subprocess.run(['taskkill', '/F', '/PID', pid],
+                                   capture_output=True, timeout=5)
+                    time.sleep(0.5)
     except Exception as e:
-        print(f"Không thể đọc Excel lúc khởi động: {e}. Đang dùng dữ liệu đã cache...")
-    
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), AutoUpdateHandler) as httpd:
-        print(f"Server đang chạy tại http://localhost:{PORT}")
-        print("Mỗi khi bạn mở hoặc F5 lại trang Dashboard, server sẽ tự kiểm tra và đọc file Excel mới nhất!")
-        httpd.serve_forever()
+        log.warning(f"Không thể kiểm tra port cũ: {e}")
 
+
+if __name__ == '__main__':
+    log.info(f"=== Dashboard Server khởi động ===")
+    log.info(f"Thư mục: {BASE_DIR}")
+    log.info(f"File Excel: {EXCEL_PATH}")
+    log.info(f"File Excel tồn tại: {os.path.exists(EXCEL_PATH)}")
+
+    # Kill server cũ nếu còn chạy trên port
+    kill_old_server_on_port(PORT)
+
+    # Đọc Excel ở luồng phụ lúc khởi động để không chặn HTTP server lắng nghe
+    def bg_extract():
+        try:
+            extract_excel_data()
+        except Exception as e:
+            log.warning(f"Không thể đọc Excel lúc khởi động: {e}. Đang dùng dữ liệu đã cache...")
+
+    threading.Thread(target=bg_extract, daemon=True).start()
+
+    socketserver.TCPServer.allow_reuse_address = True
+    try:
+        with socketserver.TCPServer(("", PORT), AutoUpdateHandler) as httpd:
+            log.info(f"Server đang chạy tại http://localhost:{PORT}")
+            log.info("Mỗi khi bạn mở hoặc F5 lại trang Dashboard, server sẽ tự kiểm tra và đọc file Excel mới nhất!")
+            httpd.serve_forever()
+    except Exception as e:
+        log.error(f"KHÔNG THỂ KHỞI ĐỘNG SERVER: {e}")
+        log.error(f"Port {PORT} có thể đang bị chiếm. Hãy thử chạy lại hoặc kiểm tra tasklist.")
+        time.sleep(5)

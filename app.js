@@ -1,11 +1,12 @@
 // State Management
 let allData = window.RAW_DATA || [];
+let warehouseChartInstance = null;
 let filteredData = [...allData];
 
 let currentFilters = {
-  year: 'ALL',
-  category: 'ALL',
-  warehouse: 'ALL',
+  year: new Set(),
+  category: new Set(),
+  warehouse: new Set(),
   search: '',
   thang: new Set(),
   tieu_muc: new Set(),
@@ -99,34 +100,20 @@ function updateSyncBadge() {
 
 // Populate Filter Options dynamically
 function initFilterDropdowns() {
-  const years = setOfValues('nam').sort((a, b) => b - a);
-  const selYear = document.getElementById('filter-year');
-  selYear.innerHTML = '<option value="ALL">-- Tất Cả Các Năm --</option>';
-
-  years.forEach(y => {
-    if (y && y !== 'N/A' && Number(y) > 1900) {
-      const opt = document.createElement('option');
-      opt.value = y;
-      opt.textContent = `Năm ${y}`;
-      selYear.appendChild(opt);
-    }
-  });
-
   updateDependentDropdowns();
 }
 
 function updateDependentDropdowns() {
-  const selCat = document.getElementById('filter-category');
-  const selWh = document.getElementById('filter-warehouse');
+  // 1. Populate Year MultiSelect (from allData)
+  const validYears = Array.from(new Set(allData.map(i => String(i.nam)).filter(y => y && y !== 'N/A' && Number(y) > 1900)))
+    .sort((a, b) => Number(b) - Number(a));
+  window._validYears = validYears;
+  renderMsOptions('year', validYears, '-- Tất Cả Các Năm --', 'năm');
 
-  const currYear = currentFilters.year;
-  const currCat = currentFilters.category;
-  const currWh = currentFilters.warehouse;
-
-  // 1. Data subset for Category dropdown (filtered by active Year and Search)
+  // 2. Data subset for Category dropdown (filtered by active Year and Search)
   let catData = allData;
-  if (currYear !== 'ALL') {
-    catData = catData.filter(item => String(item.nam) === String(currYear));
+  if (currentFilters.year.size > 0) {
+    catData = catData.filter(item => currentFilters.year.has(String(item.nam)));
   }
   if (currentFilters.search) {
     const s = currentFilters.search;
@@ -141,49 +128,25 @@ function updateDependentDropdowns() {
     );
   }
 
-  const validCategories = new Set(catData.map(i => i.loai_cp).filter(Boolean));
-  const sortedCategories = Array.from(validCategories).sort();
+  const validCategories = Array.from(new Set(catData.map(i => i.loai_cp).filter(Boolean))).sort();
+  window._validCategories = validCategories;
+  renderMsOptions('category', validCategories, '-- Tất Cả Loại CP --', 'loại CP');
 
-  selCat.innerHTML = '<option value="ALL">-- Tất Cả Loại CP --</option>';
-  sortedCategories.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c;
-    opt.textContent = c;
-    if (c === currCat) opt.selected = true;
-    selCat.appendChild(opt);
-  });
-
-  if (currCat !== 'ALL' && !validCategories.has(currCat)) {
-    currentFilters.category = 'ALL';
-    selCat.value = 'ALL';
-  }
-
-  // 2. Data subset for Warehouse dropdown (filtered by active Year, Category, and Search)
+  // 3. Data subset for Warehouse dropdown (filtered by active Year, Category, and Search)
   let whData = catData;
-  if (currentFilters.category !== 'ALL') {
-    whData = whData.filter(item => item.loai_cp === currentFilters.category);
+  if (currentFilters.category.size > 0) {
+    whData = whData.filter(item => currentFilters.category.has(item.loai_cp));
   }
 
-  const validWarehouses = new Set(whData.map(i => i.kho).filter(Boolean));
-  const sortedWarehouses = Array.from(validWarehouses).sort();
+  const validWarehouses = Array.from(new Set(whData.map(i => i.kho).filter(Boolean))).sort();
+  window._validWarehouses = validWarehouses;
+  renderMsOptions('warehouse', validWarehouses, '-- Tất Cả Kho --', 'kho');
 
-  selWh.innerHTML = '<option value="ALL">-- Tất Cả Kho --</option>';
-  sortedWarehouses.forEach(w => {
-    const opt = document.createElement('option');
-    opt.value = w;
-    opt.textContent = w;
-    if (w === currWh) opt.selected = true;
-    selWh.appendChild(opt);
-  });
-
-  if (currWh !== 'ALL' && !validWarehouses.has(currWh)) {
-    currentFilters.warehouse = 'ALL';
-    selWh.value = 'ALL';
-  }
-
-  // 3. Populate Tháng MultiSelect
+  // 4. Populate Tháng MultiSelect
   let thangData = whData;
-  if (currentFilters.warehouse !== 'ALL') thangData = thangData.filter(i => i.kho === currentFilters.warehouse);
+  if (currentFilters.warehouse.size > 0) {
+    thangData = thangData.filter(i => currentFilters.warehouse.has(i.kho));
+  }
   const validThangs = Array.from(new Set(thangData.map(i => i.thang).filter(Boolean)))
     .sort((a, b) => {
       const parse = s => { const p = s.split('/'); return p.length === 2 ? [+p[1], +p[0]] : [0,0]; };
@@ -193,14 +156,14 @@ function updateDependentDropdowns() {
   window._validThangs = validThangs;
   renderMsOptions('thang', validThangs, '-- Tất Cả Tháng --', 'tháng');
 
-  // 4. Populate Tiểu mục CP MultiSelect
+  // 5. Populate Tiểu mục CP MultiSelect
   let tieuMucData = thangData;
   if (currentFilters.thang.size > 0) tieuMucData = tieuMucData.filter(i => currentFilters.thang.has(i.thang));
   const validTieuMuc = Array.from(new Set(tieuMucData.map(i => i.tieu_muc).filter(Boolean))).sort();
   window._validTieuMuc = validTieuMuc;
   renderMsOptions('tieu_muc', validTieuMuc, '-- Tất Cả Tiểu Mục --', 'tiểu mục');
 
-  // 5. Populate Chi tiết HĐ MultiSelect
+  // 6. Populate Chi tiết HĐ MultiSelect
   let chiTietData = tieuMucData;
   if (currentFilters.tieu_muc.size > 0) chiTietData = chiTietData.filter(i => currentFilters.tieu_muc.has(i.tieu_muc));
   const validChiTiet = Array.from(new Set(chiTietData.map(i => (i.chi_tiet_hd || i.chi_tiet || '')).filter(Boolean))).sort();
@@ -319,35 +282,17 @@ function setOfValues(key) {
 
 // Event Listeners
 function setupEventListeners() {
-  document.getElementById('filter-year').addEventListener('change', (e) => {
-    currentFilters.year = e.target.value;
-    applyFilters();
-  });
-
-  document.getElementById('filter-category').addEventListener('change', (e) => {
-    currentFilters.category = e.target.value;
-    applyFilters();
-  });
-
-  document.getElementById('filter-warehouse').addEventListener('change', (e) => {
-    currentFilters.warehouse = e.target.value;
-    applyFilters();
-  });
-
   document.getElementById('filter-search').addEventListener('input', (e) => {
     currentFilters.search = e.target.value.toLowerCase().trim();
     applyFilters();
   });
 
   document.getElementById('btn-reset').addEventListener('click', () => {
-    document.getElementById('filter-year').value = 'ALL';
-    document.getElementById('filter-category').value = 'ALL';
-    document.getElementById('filter-warehouse').value = 'ALL';
     document.getElementById('filter-search').value = '';
     currentFilters = {
-      year: 'ALL',
-      category: 'ALL',
-      warehouse: 'ALL',
+      year: new Set(),
+      category: new Set(),
+      warehouse: new Set(),
       search: '',
       thang: new Set(),
       tieu_muc: new Set(),
@@ -370,8 +315,8 @@ function setupEventListeners() {
 
   document.getElementById('btn-export').addEventListener('click', exportToCSV);
 
-  // MultiSelect dropdown event listeners
-  ['thang', 'tieu_muc', 'chi_tiet_hd'].forEach(key => {
+  // MultiSelect dropdown event listeners for ALL 6 dropdowns
+  ['year', 'category', 'warehouse', 'thang', 'tieu_muc', 'chi_tiet_hd'].forEach(key => {
     const trigger = document.getElementById(`ms-trigger-${key}`);
     if (trigger) {
       trigger.addEventListener('click', (e) => {
@@ -393,8 +338,15 @@ function setupEventListeners() {
     const btnAll = document.getElementById(`ms-btn-all-${key}`);
     if (btnAll) {
       btnAll.addEventListener('click', () => {
-        const valid = key === 'thang' ? window._validThangs : (key === 'tieu_muc' ? window._validTieuMuc : window._validChiTiet);
-        selectAllMs(key, valid || []);
+        const validMap = {
+          year: window._validYears,
+          category: window._validCategories,
+          warehouse: window._validWarehouses,
+          thang: window._validThangs,
+          tieu_muc: window._validTieuMuc,
+          chi_tiet_hd: window._validChiTiet
+        };
+        selectAllMs(key, validMap[key] || []);
       });
     }
 
@@ -429,9 +381,9 @@ function applyFilters() {
   updateDependentDropdowns();
 
   filteredData = allData.filter(item => {
-    if (currentFilters.year !== 'ALL' && String(item.nam) !== String(currentFilters.year)) return false;
-    if (currentFilters.category !== 'ALL' && item.loai_cp !== currentFilters.category) return false;
-    if (currentFilters.warehouse !== 'ALL' && item.kho !== currentFilters.warehouse) return false;
+    if (currentFilters.year.size > 0 && !currentFilters.year.has(String(item.nam))) return false;
+    if (currentFilters.category.size > 0 && !currentFilters.category.has(item.loai_cp)) return false;
+    if (currentFilters.warehouse.size > 0 && !currentFilters.warehouse.has(item.kho)) return false;
     if (currentFilters.thang.size > 0 && !currentFilters.thang.has(item.thang)) return false;
     if (currentFilters.tieu_muc.size > 0 && !currentFilters.tieu_muc.has(item.tieu_muc)) return false;
     if (currentFilters.chi_tiet_hd.size > 0) {
@@ -458,6 +410,7 @@ function applyFilters() {
 
   updateKPIs();
   renderMatrixPivot();
+  renderWarehouseChart();
   renderDataTable();
 }
 
@@ -491,7 +444,7 @@ function updateKPIs() {
 // Render Matrix Pivot Table (Kho / Địa Điểm x Năm)
 function renderMatrixPivot() {
   const years = [2023, 2024, 2025, 2026].filter(y => {
-    if (currentFilters.year !== 'ALL') return String(y) === String(currentFilters.year);
+    if (currentFilters.year.size > 0) return currentFilters.year.has(String(y));
     return true;
   });
 
@@ -555,6 +508,157 @@ function renderMatrixPivot() {
   bodyHTML += `<td>${formatVND(grandTotal)}</td><td>100%</td></tr>`;
 
   tbody.innerHTML = bodyHTML;
+}
+
+// Render Warehouse Comparison Bar Chart
+function renderWarehouseChart() {
+  const canvas = document.getElementById('chartWarehouseCompare');
+  if (!canvas) return;
+
+  // Destroy previous instance
+  if (warehouseChartInstance) {
+    warehouseChartInstance.destroy();
+    warehouseChartInstance = null;
+  }
+
+  // Aggregate by warehouse
+  const whMap = {};
+  filteredData.forEach(item => {
+    const k = item.kho || 'Khác';
+    whMap[k] = (whMap[k] || 0) + (item.st_vat || 0);
+  });
+
+  // Sort descending
+  const sorted = Object.entries(whMap).sort((a, b) => b[1] - a[1]);
+
+  if (sorted.length === 0) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  const labels = sorted.map(x => x[0]);
+  const values = sorted.map(x => +(x[1] / 1e6).toFixed(2)); // Triệu VNĐ
+  const maxVal = Math.max(...values);
+
+  // Create gradient color per bar
+  const ctx = canvas.getContext('2d');
+  const barColors = sorted.map((_, idx) => {
+    const hue = 190 + (idx * 25) % 160; // cycle through cyan → blue → purple → emerald
+    return `hsla(${hue}, 75%, 55%, 0.85)`;
+  });
+  const borderColors = sorted.map((_, idx) => {
+    const hue = 190 + (idx * 25) % 160;
+    return `hsla(${hue}, 85%, 65%, 1)`;
+  });
+
+  const textColor = '#94a3b8';
+  const gridColor = 'rgba(255, 255, 255, 0.06)';
+
+  warehouseChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Tổng Chi Phí (Triệu VNĐ)',
+        data: values,
+        backgroundColor: barColors,
+        borderColor: borderColors,
+        borderWidth: 1.5,
+        borderRadius: 8,
+        borderSkipped: false,
+        barPercentage: 0.7,
+        categoryPercentage: 0.8
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 800,
+        easing: 'easeOutQuart'
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(10, 15, 30, 0.95)',
+          titleColor: '#06b6d4',
+          bodyColor: '#f8fafc',
+          borderColor: 'rgba(6, 182, 212, 0.35)',
+          borderWidth: 1,
+          padding: 14,
+          cornerRadius: 10,
+          titleFont: { family: 'Plus Jakarta Sans', weight: '700', size: 13 },
+          bodyFont: { family: 'Plus Jakarta Sans', size: 12 },
+          displayColors: true,
+          boxPadding: 6,
+          callbacks: {
+            title: (items) => `🏭 ${items[0].label}`,
+            label: (item) => {
+              const val = item.raw;
+              if (val >= 1000) {
+                return ` Chi phí: ${(val / 1000).toFixed(2)} Tỷ VNĐ`;
+              }
+              return ` Chi phí: ${val.toLocaleString('vi-VN')} Triệu VNĐ`;
+            },
+            afterLabel: (item) => {
+              const total = values.reduce((s, v) => s + v, 0);
+              const pct = total > 0 ? ((item.raw / total) * 100).toFixed(1) : 0;
+              return ` Tỷ trọng: ${pct}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            color: textColor,
+            font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
+          },
+          grid: { display: false },
+          border: { color: 'rgba(255,255,255,0.1)' }
+        },
+        x: {
+          beginAtZero: true,
+          ticks: {
+            color: textColor,
+            font: { family: 'Plus Jakarta Sans', size: 11 },
+            callback: (val) => {
+              if (val >= 1000) return (val / 1000).toFixed(1) + ' Tỷ';
+              return val + ' Tr';
+            }
+          },
+          grid: { color: gridColor },
+          border: { display: false }
+        }
+      }
+    },
+    plugins: [{
+      // Plugin: draw value labels to the right of each bar
+      id: 'barValueLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx: c, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        c.save();
+        c.font = '600 11px "Plus Jakarta Sans"';
+        c.textAlign = 'left';
+        c.textBaseline = 'middle';
+        meta.data.forEach((bar, i) => {
+          const val = data.datasets[0].data[i];
+          let label;
+          if (val >= 1000) {
+            label = (val / 1000).toFixed(1) + ' Tỷ';
+          } else {
+            label = val.toLocaleString('vi-VN') + ' Tr';
+          }
+          c.fillStyle = borderColors[i] || '#06b6d4';
+          c.fillText(label, bar.x + 8, bar.y);
+        });
+        c.restore();
+      }
+    }]
+  });
 }
 
 // Render Chart.js Visualizations

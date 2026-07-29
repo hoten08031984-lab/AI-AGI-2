@@ -17,6 +17,8 @@
   <!-- Custom Styles System -->
   <link rel="stylesheet" href="index.css">
 
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
 </head>
 <body>
@@ -54,24 +56,63 @@
     <!-- Global Filter Control Bar -->
     <section class="filter-bar">
       <div class="filter-group">
-        <label for="filter-year"><i class="far fa-calendar-alt"></i> Lọc Theo Năm</label>
-        <select id="filter-year" class="filter-select">
-          <option value="ALL">-- Tất Cả Các Năm --</option>
-        </select>
+        <label><i class="far fa-calendar-alt"></i> Lọc Theo Năm</label>
+        <div class="ms-container" id="ms-container-year">
+          <div class="ms-trigger" id="ms-trigger-year">
+            <span class="ms-label" id="ms-label-year">-- Tất Cả Các Năm --</span>
+            <i class="fas fa-chevron-down ms-arrow"></i>
+          </div>
+          <div class="ms-dropdown" id="ms-dropdown-year">
+            <div class="ms-search-wrap">
+              <input type="text" class="ms-search" id="ms-search-year" placeholder="Tìm năm...">
+            </div>
+            <div class="ms-actions">
+              <button type="button" class="ms-btn" id="ms-btn-all-year">Chọn tất cả</button>
+              <button type="button" class="ms-btn ms-btn-clear" id="ms-btn-clear-year">Bỏ chọn</button>
+            </div>
+            <div class="ms-options" id="ms-options-year"></div>
+          </div>
+        </div>
       </div>
 
       <div class="filter-group">
-        <label for="filter-category"><i class="fas fa-list-ul"></i> Loại CP (Cột A)</label>
-        <select id="filter-category" class="filter-select">
-          <option value="ALL">-- Tất Cả Loại CP --</option>
-        </select>
+        <label><i class="fas fa-list-ul"></i> Loại CP (Cột A)</label>
+        <div class="ms-container" id="ms-container-category">
+          <div class="ms-trigger" id="ms-trigger-category">
+            <span class="ms-label" id="ms-label-category">-- Tất Cả Loại CP --</span>
+            <i class="fas fa-chevron-down ms-arrow"></i>
+          </div>
+          <div class="ms-dropdown" id="ms-dropdown-category">
+            <div class="ms-search-wrap">
+              <input type="text" class="ms-search" id="ms-search-category" placeholder="Tìm loại CP...">
+            </div>
+            <div class="ms-actions">
+              <button type="button" class="ms-btn" id="ms-btn-all-category">Chọn tất cả</button>
+              <button type="button" class="ms-btn ms-btn-clear" id="ms-btn-clear-category">Bỏ chọn</button>
+            </div>
+            <div class="ms-options" id="ms-options-category"></div>
+          </div>
+        </div>
       </div>
 
       <div class="filter-group">
-        <label for="filter-warehouse"><i class="fas fa-warehouse"></i> Kho / Địa Điểm</label>
-        <select id="filter-warehouse" class="filter-select">
-          <option value="ALL">-- Tất Cả Kho --</option>
-        </select>
+        <label><i class="fas fa-warehouse"></i> Kho / Địa Điểm</label>
+        <div class="ms-container" id="ms-container-warehouse">
+          <div class="ms-trigger" id="ms-trigger-warehouse">
+            <span class="ms-label" id="ms-label-warehouse">-- Tất Cả Kho --</span>
+            <i class="fas fa-chevron-down ms-arrow"></i>
+          </div>
+          <div class="ms-dropdown" id="ms-dropdown-warehouse">
+            <div class="ms-search-wrap">
+              <input type="text" class="ms-search" id="ms-search-warehouse" placeholder="Tìm kho / địa điểm...">
+            </div>
+            <div class="ms-actions">
+              <button type="button" class="ms-btn" id="ms-btn-all-warehouse">Chọn tất cả</button>
+              <button type="button" class="ms-btn ms-btn-clear" id="ms-btn-clear-warehouse">Bỏ chọn</button>
+            </div>
+            <div class="ms-options" id="ms-options-warehouse"></div>
+          </div>
+        </div>
       </div>
 
       <div class="filter-group">
@@ -144,7 +185,20 @@
       </div>
     </section>
 
-
+    <!-- Warehouse Comparison Bar Chart -->
+    <section class="glass-card" id="chart-warehouse-section">
+      <div class="card-header">
+        <div class="card-title">
+          <i class="fas fa-chart-column"></i> SO SÁNH CHI PHÍ GIỮA CÁC KHO
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted)">
+          <i class="fas fa-info-circle"></i> Đơn vị: Triệu VNĐ — Cập nhật theo bộ lọc
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="chartWarehouseCompare"></canvas>
+      </div>
+    </section>
 
     <!-- Detailed Transactions Data Table -->
     <section class="glass-card">
