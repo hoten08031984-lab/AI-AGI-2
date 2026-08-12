@@ -313,7 +313,14 @@ function setupEventListeners() {
     });
   }
 
-  document.getElementById('btn-export').addEventListener('click', exportToCSV);
+  const btnExport = document.getElementById('btn-export');
+  if (btnExport) btnExport.addEventListener('click', exportToCSV);
+  
+  const btnExportExcel = document.getElementById('btn-export-excel');
+  if (btnExportExcel) btnExportExcel.addEventListener('click', exportToExcel);
+
+  const btnExportExcelTable = document.getElementById('btn-export-excel-table');
+  if (btnExportExcelTable) btnExportExcelTable.addEventListener('click', exportToExcel);
 
   // MultiSelect dropdown event listeners for ALL 6 dropdowns
   ['year', 'category', 'warehouse', 'thang', 'tieu_muc', 'chi_tiet_hd'].forEach(key => {
@@ -996,4 +1003,173 @@ function exportToCSV() {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// Export Filtered Data to Excel (.xlsx)
+function exportToExcel() {
+  if (!filteredData || filteredData.length === 0) {
+    alert('Không có dữ liệu phù hợp để xuất!');
+    return;
+  }
+
+  // 1. Map data rows with formatted titles and numeric values for amounts
+  const exportRows = filteredData.map((item, index) => ({
+    'STT': index + 1,
+    'Loại Chi Phí': item.loai_cp || '',
+    'Tiểu Mục CP': item.tieu_muc || '',
+    'Số HĐ': formatSoHD(item.so_hd),
+    'Ngày HĐ': formatDateDDMMYYYY(item.ngay_hd),
+    'Tháng': item.thang || '',
+    'Lý Do Thanh Toán': item.ly_do || '',
+    'Chi Tiết HĐ': item.chi_tiet_hd || item.chi_tiet || '',
+    'Kho / Địa Điểm': item.kho || '',
+    'Số Tiền Chưa VAT (VNĐ)': item.st_no_vat !== undefined && item.st_no_vat !== null ? Number(item.st_no_vat) : 0,
+    'VAT (VNĐ)': item.vat !== undefined && item.vat !== null ? Number(item.vat) : 0,
+    'Số Tiền VAT (VNĐ)': item.st_vat !== undefined && item.st_vat !== null ? Number(item.st_vat) : 0,
+    'Ngày Đề Nghị TT': item.ngay_tt || '',
+    'Người Thụ Hưởng': item.nguoi_thu_huong || '',
+    'Ngân Hàng': item.ngan_hang || '',
+    'Năm': item.nam && item.nam !== 'N/A' ? Number(item.nam) : (item.nam || '')
+  }));
+
+  // 2. Append Total Summary row
+  const totalStNoVat = filteredData.reduce((sum, item) => sum + (Number(item.st_no_vat) || 0), 0);
+  const totalVat = filteredData.reduce((sum, item) => sum + (Number(item.vat) || 0), 0);
+  const totalStVat = filteredData.reduce((sum, item) => sum + (Number(item.st_vat) || 0), 0);
+
+  exportRows.push({
+    'STT': 'TỔNG CỘNG',
+    'Loại Chi Phí': `Tổng số ${filteredData.length.toLocaleString('vi-VN')} mục`,
+    'Tiểu Mục CP': '',
+    'Số HĐ': '',
+    'Ngày HĐ': '',
+    'Tháng': '',
+    'Lý Do Thanh Toán': '',
+    'Chi Tiết HĐ': '',
+    'Kho / Địa Điểm': '',
+    'Số Tiền Chưa VAT (VNĐ)': totalStNoVat,
+    'VAT (VNĐ)': totalVat,
+    'Số Tiền VAT (VNĐ)': totalStVat,
+    'Ngày Đề Nghị TT': '',
+    'Người Thụ Hưởng': '',
+    'Ngân Hàng': '',
+    'Năm': ''
+  });
+
+  if (typeof XLSX !== 'undefined') {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+      // Auto-fit column widths
+      worksheet['!cols'] = [
+        { wch: 12 }, // STT / TỔNG CỘNG
+        { wch: 28 }, // Loại Chi Phí
+        { wch: 22 }, // Tiểu Mục CP
+        { wch: 16 }, // Số HĐ
+        { wch: 14 }, // Ngày HĐ
+        { wch: 10 }, // Tháng
+        { wch: 45 }, // Lý Do Thanh Toán
+        { wch: 38 }, // Chi Tiết HĐ
+        { wch: 25 }, // Kho / Địa Điểm
+        { wch: 24 }, // Số Tiền Chưa VAT
+        { wch: 18 }, // VAT
+        { wch: 24 }, // Số Tiền VAT
+        { wch: 18 }, // Ngày Đề Nghị TT
+        { wch: 32 }, // Người Thụ Hưởng
+        { wch: 25 }, // Ngân Hàng
+        { wch: 10 }  // Năm
+      ];
+
+      // Format financial columns J, K, L with number format #,##0
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        ['J', 'K', 'L'].forEach(col => {
+          const cell = worksheet[col + (R + 1)];
+          if (cell && typeof cell.v === 'number') {
+            cell.z = '#,##0';
+          }
+        });
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Chi Tiết Chi Phí');
+
+      const now = new Date();
+      const timestamp = now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') + '_' +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0');
+
+      const fileName = `Bao_Cao_Chi_Phi_Loc_${timestamp}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      return;
+    } catch (err) {
+      console.error('SheetJS Export Error:', err);
+    }
+  }
+
+  // Fallback to XML Spreadsheet (.xls) if SheetJS is unavailable
+  exportToExcelXML(exportRows);
+}
+
+// Fallback XML Spreadsheet generator for Excel compatibility
+function exportToExcelXML(dataRows) {
+  if (!dataRows || dataRows.length === 0) return;
+  const keys = Object.keys(dataRows[0]);
+
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<?mso-application progid="Excel.Sheet"?>\n';
+  xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+  xml += ' xmlns:o="urn:schemas-microsoft-com:office:office"\n';
+  xml += ' xmlns:x="urn:schemas-microsoft-com:office:excel"\n';
+  xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+  xml += '<Styles>\n';
+  xml += ' <Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#059669" ss:Pattern="Solid"/></Style>\n';
+  xml += ' <Style ss:ID="Number"><NumberFormat ss:Format="#,##0"/></Style>\n';
+  xml += ' <Style ss:ID="Total"><Font ss:Bold="1"/><Interior ss:Color="#D1FAE5" ss:Pattern="Solid"/><NumberFormat ss:Format="#,##0"/></Style>\n';
+  xml += '</Styles>\n';
+  xml += '<Worksheet ss:Name="Bao Cao Chi Phi">\n';
+  xml += '<Table>\n';
+
+  // Header Row
+  xml += '<Row>\n';
+  keys.forEach(k => {
+    xml += ` <Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(k)}</Data></Cell>\n`;
+  });
+  xml += '</Row>\n';
+
+  // Data Rows
+  dataRows.forEach(row => {
+    const isTotal = row['STT'] === 'TỔNG CỘNG';
+    xml += '<Row>\n';
+    keys.forEach(k => {
+      const val = row[k];
+      const isNum = typeof val === 'number';
+      const style = isTotal ? 'ss:StyleID="Total"' : (isNum ? 'ss:StyleID="Number"' : '');
+      const type = isNum ? 'Number' : 'String';
+      xml += ` <Cell ${style}><Data ss:Type="${type}">${escapeXml(String(val !== undefined && val !== null ? val : ''))}</Data></Cell>\n`;
+    });
+    xml += '</Row>\n';
+  });
+
+  xml += '</Table>\n</Worksheet>\n</Workbook>';
+
+  const blob = new Blob(['\ufeff' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Bao_Cao_Chi_Phi_Loc_${new Date().toISOString().slice(0, 10)}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }

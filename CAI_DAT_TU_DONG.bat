@@ -10,13 +10,59 @@ echo.
 set "TARGET_DIR=%~dp0"
 if "%TARGET_DIR:~-1%"=="\" set "TARGET_DIR=%TARGET_DIR:~0,-1%"
 
-REM --- Tim duong dan tuyet doi toi pythonw.exe ---
-set "PYTHONW_PATH="
-for /f "delims=" %%i in ('where pythonw.exe 2^>nul') do (
-    if not defined PYTHONW_PATH set "PYTHONW_PATH=%%i"
+set "VENV_DIR=%TARGET_DIR%\venv"
+set "REQ_FILE=%TARGET_DIR%\requirements.txt"
+
+REM --- BUOC 1: Kiem tra Python he thong ---
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [LOI] Khong tim thay Python! Hay cai dat Python truoc.
+    pause
+    exit /b 1
 )
-if not defined PYTHONW_PATH (
-    echo [LOI] Khong tim thay pythonw.exe! Hay cai dat Python truoc.
+
+REM --- BUOC 2: Tao Virtual Environment moi neu chua co ---
+set "NEED_CREATE_VENV=0"
+if not exist "%VENV_DIR%\Scripts\python.exe" set "NEED_CREATE_VENV=1"
+
+if "%NEED_CREATE_VENV%"=="1" goto skip_check
+
+"%VENV_DIR%\Scripts\python.exe" -c "import os, sys; sys.exit(0 if os.path.normpath(sys.prefix).lower() == os.path.normpath(r'%VENV_DIR%').lower() else 1)" >nul 2>&1
+if not errorlevel 1 goto skip_check
+
+echo [WARN] Phat hien Virtual Environment cu co duong dan khong hop le (do copy sang may khac).
+echo Dang xoa venv cu de tu dong tao lai...
+rd /s /q "%VENV_DIR%"
+set "NEED_CREATE_VENV=1"
+
+:skip_check
+
+if "%NEED_CREATE_VENV%"=="1" (
+    echo Dang tao Virtual Environment moi ...
+    python -m venv "%VENV_DIR%"
+    if errorlevel 1 (
+        echo LOI: Khong the tao Virtual Environment.
+        pause
+        exit /b 1
+    )
+    echo [OK] Da tao Virtual Environment moi.
+) else (
+    echo [OK] Virtual Environment da ton tai.
+)
+
+REM --- BUOC 3: Cai dat thu vien vao venv ---
+echo Dang kiem tra va cai dat thu vien Python...
+"%VENV_DIR%\Scripts\python.exe" -m pip install -r "%REQ_FILE%" -q
+if errorlevel 1 (
+    echo LOI: Khong the cai dat cac thu vien.
+    pause
+    exit /b 1
+)
+
+REM --- Tim duong dan tuyet doi toi pythonw.exe trong venv ---
+set "PYTHONW_PATH=%VENV_DIR%\Scripts\pythonw.exe"
+if not exist "%PYTHONW_PATH%" (
+    echo [LOI] Khong tim thay pythonw.exe trong venv!
     pause
     exit /b 1
 )
@@ -39,7 +85,7 @@ echo [1/3] Da dang ky Server vao Windows Startup thanh cong!
 echo.
 
 REM --- Khoi dong server ---
-echo [2/3] Dang khoi dong Python Server ngam...
+echo [2/3] Dang khoi dong Python Server ngam bang venv...
 start "" /B "%PYTHONW_PATH%" "%TARGET_DIR%\server.py"
 
 REM --- Doi server san sang (toi da 15 giay) ---
@@ -67,7 +113,6 @@ echo ============================================================
 echo   CAI DAT HOAN TAT!
 echo   Tu nay ve sau, moi khi bat may tinh len, ban chi can
 echo   mo trinh duyet go localhost:8080 la se tu dong chay.
-echo   Neu gap loi, kiem tra file server.log trong thu muc nay.
 echo ============================================================
 echo.
 pause

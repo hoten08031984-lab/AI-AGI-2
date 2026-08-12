@@ -9,6 +9,7 @@ import unicodedata
 import logging
 import subprocess
 import openpyxl
+import shutil
 
 # --- Logging: ghi ra cả console và file để debug khi chạy pythonw ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -89,12 +90,55 @@ def format_ngay_hd(val):
 
 PORT = 8080
 DIRECTORY = BASE_DIR
+SOURCE_EXCEL_PATH = r"D:\OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"
 EXCEL_PATH = os.path.join(BASE_DIR, "THEO DOI HOP DONG-2_Optimized.xlsx")
 JS_DATA_PATH = os.path.join(BASE_DIR, "dashboard_data.js")
 
 last_mtime = 0
 last_check_time = 0
 extract_lock = threading.Lock()
+
+def sync_from_source_excel(force=False):
+    """Tự động đồng bộ và chép đè file Excel từ đường dẫn OneDrive nếu tồn tại."""
+    if not SOURCE_EXCEL_PATH or not os.path.exists(SOURCE_EXCEL_PATH):
+        log.warning(f"Không tìm thấy file nguồn: {SOURCE_EXCEL_PATH}")
+        return False
+    try:
+        mtime_src = os.path.getmtime(SOURCE_EXCEL_PATH)
+        mtime_dst = os.path.getmtime(EXCEL_PATH) if os.path.exists(EXCEL_PATH) else 0
+
+        if force or mtime_src > mtime_dst or not os.path.exists(EXCEL_PATH):
+            tmp_path = EXCEL_PATH + ".tmp"
+            copied = False
+
+            # Try shutil.copy2 first
+            try:
+                shutil.copy2(SOURCE_EXCEL_PATH, tmp_path)
+                copied = True
+            except Exception:
+                pass
+
+            # Fallback to binary stream if shutil failed
+            if not copied:
+                try:
+                    with open(SOURCE_EXCEL_PATH, 'rb') as f_src:
+                        data = f_src.read()
+                    with open(tmp_path, 'wb') as f_dst:
+                        f_dst.write(data)
+                    copied = True
+                except Exception as e_bin:
+                    log.warning(f"Không thể đọc file từ OneDrive: {e_bin}")
+
+            # Verify temp file size (> 10KB) before atomic replace
+            if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 10000:
+                os.replace(tmp_path, EXCEL_PATH)
+                log.info(f"Đã đồng bộ chép đè file Excel an toàn từ OneDrive (Force={force}):\n  -> {SOURCE_EXCEL_PATH}")
+                return True
+            elif os.path.exists(tmp_path):
+                os.remove(tmp_path)
+    except Exception as e:
+        log.warning(f"Lỗi khi chép đè file Excel từ OneDrive: {e}")
+    return False
 
 def extract_excel_data(force=False):
     global last_mtime, last_check_time
@@ -108,6 +152,8 @@ def extract_excel_data(force=False):
         
     try:
         last_check_time = now
+        sync_from_source_excel(force=force)
+
         if not os.path.exists(EXCEL_PATH):
             print(f"File Excel not found: {EXCEL_PATH}")
             return False
@@ -132,62 +178,38 @@ def extract_excel_data(force=False):
         except Exception as e_ox:
             log.warning(f"  -> openpyxl không đọc được ({e_ox}), thử win32com...")
 
-        # If openpyxl failed (e.g. file locked by Excel), try win32com
+        # If openpyxl failed (e.g. Encrypted/OLE2 format), use win32com DispatchEx with retry backoff
         if not vals:
             try:
                 import pythoncom
                 import win32com.client as win32
 
-                for attempt in range(3):
-                    pythoncom.CoInitialize()
-                    _excel = None
-                    _wb = None
-                    close_wb = False
+                for attempt in range(1, 6):
                     try:
+                        pythoncom.CoInitialize()
+                        _excel = win32.DispatchEx('Excel.Application')
+                        _excel.Visible = False
+                        _excel.DisplayAlerts = False
+                        _excel.AutomationSecurity = 1
                         try:
-                            _excel = win32.GetActiveObject('Excel.Application')
-                        except:
-                            _excel = win32.DispatchEx('Excel.Application')
-                            _excel.Visible = False
-                            _excel.DisplayAlerts = False
-                            _excel.AutomationSecurity = 1
-
-                        wb_found = None
-                        try:
-                            for open_wb in _excel.Workbooks:
-                                if open_wb.FullName.lower() == abs_src.lower():
-                                    wb_found = open_wb
-                                    break
-                        except:
-                            pass
-
-                        if wb_found:
-                            _wb = wb_found
-                            close_wb = False
-                        else:
                             _wb = _excel.Workbooks.Open(abs_src, 0, True)
-                            close_wb = True
-
-                        time.sleep(0.5)
-                        ws = _wb.Sheets('CHI')
-                        vals = ws.UsedRange.Value
-                        log.info(f"  -> Đọc thành công bằng win32com.")
-                        if close_wb:
+                            ws = _wb.Sheets('CHI')
+                            vals = ws.UsedRange.Value
+                            log.info(f"  -> Đọc thành công bằng win32com (Lần {attempt}, {len(vals) if vals else 0} dòng).")
                             try: _wb.Close(False)
                             except: pass
-                        break
+                            break
+                        finally:
+                            try: _excel.Quit()
+                            except: pass
+                            pythoncom.CoUninitialize()
                     except Exception as e_attempt:
-                        log.warning(f"  Lần thử {attempt+1} đọc Excel bị hoãn: {e_attempt}")
-                        time.sleep(1.0)
-                    finally:
-                        try:
-                            if close_wb and _wb:
-                                _wb.Close(False)
-                        except: pass
-                        pythoncom.CoUninitialize()
+                        log.warning(f"  -> Lần thử {attempt}/5 đọc win32com (Excel đang bận): {e_attempt}. Đang thử lại sau 1.5s...")
+                        time.sleep(1.5)
+            except Exception as e_win32:
+                log.error(f"  -> win32com không đọc được dữ liệu: {e_win32}")
             except ImportError:
                 log.info(f"  -> win32com không khả dụng, bỏ qua.")
-            except Exception as e_com:
                 log.error(f"  -> Lỗi win32com: {e_com}")
 
         if not vals:

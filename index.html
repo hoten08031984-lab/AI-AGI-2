@@ -17,7 +17,8 @@
   <!-- Custom Styles System -->
   <link rel="stylesheet" href="index.css">
 
-  <!-- Chart.js CDN -->
+  <!-- Chart.js CDN & SheetJS (Excel) -->
+  <script src="xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
 </head>
@@ -43,9 +44,6 @@
     <div class="header-actions">
       <button class="btn btn-refresh" id="btn-refresh" title="Kiểm tra và làm mới dữ liệu từ file Excel">
         <i class="fas fa-sync-alt" id="icon-refresh"></i> Làm Mới Dữ Liệu
-      </button>
-      <button class="btn btn-primary" id="btn-export">
-        <i class="fas fa-file-csv"></i> Xuất CSV
       </button>
     </div>
   </header>
@@ -206,7 +204,12 @@
         <div class="card-title">
           <i class="fas fa-list"></i> DANH SÁCH CHI TIẾT CÁC MỤC THANH TOÁN
         </div>
-        <div id="table-info" style="font-size:0.85rem; color:var(--text-muted); font-weight:600"></div>
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <button class="btn btn-excel-sm" id="btn-export-excel-table" title="Xuất dữ liệu đang lọc ra file Excel (.xlsx)">
+            <i class="fas fa-file-excel"></i> Xuất Excel (.xlsx)
+          </button>
+          <div id="table-info" style="font-size:0.85rem; color:var(--text-muted); font-weight:600"></div>
+        </div>
       </div>
 
       <!-- Bộ lọc nhanh của bảng chi tiết (Multi-Select tích chọn nhiều mục) -->
