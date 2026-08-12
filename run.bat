@@ -12,10 +12,22 @@ if "%TARGET_DIR:~-1%"=="\" set "TARGET_DIR=%TARGET_DIR:~0,-1%"
 
 cd /d "%TARGET_DIR%"
 
+REM --- BUOC 1: Dong bo code tu GitHub ---
+git --version >nul 2>&1
+if not errorlevel 1 (
+    echo Dang kiem tra va cap nhat code tu GitHub...
+    git pull origin main >nul 2>&1
+    if not errorlevel 1 (
+        echo [OK] Da cap nhat code moi nhat tu GitHub!
+    ) else (
+        echo [INFO] Khong the ket noi GitHub, su dung phien ban hien tai.
+    )
+)
+
 set "VENV_DIR=%TARGET_DIR%\venv"
 set "REQ_FILE=%TARGET_DIR%\requirements.txt"
 
-REM --- BUOC 1: Kiem tra Python he thong ---
+REM --- BUOC 2: Kiem tra Python he thong ---
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [LOI] Khong tim thay Python! Vui long cai dat Python.
@@ -23,7 +35,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM --- BUOC 2: Tao Virtual Environment neu chua co ---
+REM --- BUOC 3: Tao Virtual Environment neu chua co ---
 set "NEED_CREATE_VENV=0"
 if not exist "%VENV_DIR%\Scripts\python.exe" set "NEED_CREATE_VENV=1"
 
@@ -37,11 +49,11 @@ if "%NEED_CREATE_VENV%"=="1" (
     )
 )
 
-REM --- BUOC 3: Cai dat thu vien ---
+REM --- BUOC 4: Cai dat thu vien ---
 echo Dang kiem tra va cai dat thu vien Python...
 "%VENV_DIR%\Scripts\python.exe" -m pip install -r "%REQ_FILE%" -q
 
-REM --- BUOC 4: Mo Trinh Duyet va Khoi dong Server ---
+REM --- BUOC 5: Mo Trinh Duyet va Khoi dong Server ---
 echo.
 echo Dang khoi dong Python Server va mo Dashboard tren http://localhost:8080 ...
 start "" "http://localhost:8080"
