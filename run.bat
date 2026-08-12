@@ -35,18 +35,29 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM --- BUOC 3: Tao Virtual Environment neu chua co ---
+REM --- BUOC 3: Kiem tra va Tu dong tao venv neu copy sang may/thu muc khac ---
 set "NEED_CREATE_VENV=0"
 if not exist "%VENV_DIR%\Scripts\python.exe" set "NEED_CREATE_VENV=1"
 
+if "%NEED_CREATE_VENV%"=="0" (
+    "%VENV_DIR%\Scripts\python.exe" -c "import os, sys; sys.exit(0 if os.path.normpath(sys.prefix).lower() == os.path.normpath(r'%VENV_DIR%').lower() else 1)" >nul 2>&1
+    if errorlevel 1 (
+        echo [INFO] Phat hien du an duoc copy sang vi tri moi (%TARGET_DIR%).
+        echo Dang tu dong khoi tao lai venv de tuong thich 100%%...
+        rd /s /q "%VENV_DIR%" >nul 2>&1
+        set "NEED_CREATE_VENV=1"
+    )
+)
+
 if "%NEED_CREATE_VENV%"=="1" (
-    echo Dang tao Virtual Environment venv...
+    echo Dang tao Virtual Environment venv moi...
     python -m venv "%VENV_DIR%"
     if errorlevel 1 (
-        echo [LOI] Khong the tao Virtual Environment venv.
+        echo [LOI] Khong the tao Virtual Environment. Vui long kiem tra Python.
         pause
         exit /b 1
     )
+    echo [OK] Da tao xong Virtual Environment.
 )
 
 REM --- BUOC 4: Cai dat thu vien ---
