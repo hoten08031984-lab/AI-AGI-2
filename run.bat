@@ -12,15 +12,35 @@ if "%TARGET_DIR:~-1%"=="\" set "TARGET_DIR=%TARGET_DIR:~0,-1%"
 
 cd /d "%TARGET_DIR%"
 
-REM --- BUOC 1: Dong bo code tu GitHub ---
+REM --- BUOC 1: Dong bo code voi GitHub (Pull + Push) ---
 git --version >nul 2>&1
 if not errorlevel 1 (
-    echo Dang kiem tra va cap nhat code tu GitHub...
+    echo Dang dong bo code voi GitHub...
+    
+    REM Keo code moi nhat tu GitHub
     git pull origin main >nul 2>&1
     if not errorlevel 1 (
-        echo [OK] Da cap nhat code moi nhat tu GitHub!
+        echo [OK] Da keo code moi nhat tu GitHub!
     ) else (
-        echo [INFO] Khong the ket noi GitHub, su dung phien ban hien tai.
+        echo [INFO] Khong the ket noi GitHub de pull, su dung phien ban hien tai.
+    )
+    
+    REM Kiem tra co thay doi chua commit khong
+    set "HAS_CHANGES=0"
+    for /f %%i in ('git status --porcelain 2^>nul') do set "HAS_CHANGES=1"
+    
+    if "!HAS_CHANGES!"=="1" (
+        echo Phat hien thay doi chua dong bo. Dang day len GitHub...
+        git add -A >nul 2>&1
+        git commit -m "Tu dong dong bo dashboard [%date% %time:~0,8%]" >nul 2>&1
+        git push origin main >nul 2>&1
+        if not errorlevel 1 (
+            echo [OK] Da dong bo code len GitHub thanh cong!
+        ) else (
+            echo [INFO] Khong the push len GitHub, se thu lai lan sau.
+        )
+    ) else (
+        echo [OK] Code da dong bo, khong co thay doi moi.
     )
 )
 
