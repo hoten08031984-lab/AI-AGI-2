@@ -82,11 +82,44 @@ const formatDateDDMMYYYY = (val) => {
 
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   initFilterDropdowns();
   setupEventListeners();
   updateSyncBadge();
   applyFilters();
 });
+
+// Theme Switcher System
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  applyTheme(savedTheme);
+
+  const themeBtn = document.getElementById('btn-theme-toggle');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(newTheme);
+      localStorage.setItem('theme', newTheme);
+      // Re-render all charts with new theme colors
+      renderWarehouseChart();
+      if (typeof renderCharts === 'function') renderCharts();
+    });
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const icon = document.getElementById('icon-theme');
+  const text = document.getElementById('text-theme');
+  if (theme === 'dark') {
+    if (icon) icon.className = 'fas fa-sun';
+    if (text) text.textContent = 'Giao Diện Sáng';
+  } else {
+    if (icon) icon.className = 'fas fa-moon';
+    if (text) text.textContent = 'Giao Diện Tối';
+  }
+}
 
 function updateSyncBadge() {
   const badge = document.getElementById('sync-badge');
@@ -559,8 +592,9 @@ function renderWarehouseChart() {
     return `hsla(${hue}, 85%, 65%, 1)`;
   });
 
-  const textColor = '#94a3b8';
-  const gridColor = 'rgba(255, 255, 255, 0.06)';
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#475569';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
 
   warehouseChartInstance = new Chart(ctx, {
     type: 'bar',
@@ -589,10 +623,10 @@ function renderWarehouseChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(10, 15, 30, 0.95)',
-          titleColor: '#06b6d4',
-          bodyColor: '#f8fafc',
-          borderColor: 'rgba(6, 182, 212, 0.35)',
+          backgroundColor: isDark ? 'rgba(10, 15, 30, 0.95)' : '#ffffff',
+          titleColor: isDark ? '#06b6d4' : '#0284c7',
+          bodyColor: isDark ? '#f8fafc' : '#0f172a',
+          borderColor: isDark ? 'rgba(6, 182, 212, 0.35)' : '#e2e8f0',
           borderWidth: 1,
           padding: 14,
           cornerRadius: 10,
@@ -624,7 +658,7 @@ function renderWarehouseChart() {
             font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
           },
           grid: { display: false },
-          border: { color: 'rgba(255,255,255,0.1)' }
+          border: { color: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0' }
         },
         x: {
           beginAtZero: true,
@@ -670,8 +704,9 @@ function renderWarehouseChart() {
 
 // Render Chart.js Visualizations
 function renderCharts() {
-  const textColor = '#94a3b8';
-  const gridColor = 'rgba(255, 255, 255, 0.07)';
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#475569';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)';
 
   // Chart 1: Category Expenditure across Years (Bar Chart)
   const categories = setOfValues('loai_cp').sort();
@@ -705,9 +740,9 @@ function renderCharts() {
       plugins: {
         legend: { labels: { color: textColor, font: { family: 'Plus Jakarta Sans', weight: '600' } } },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          titleColor: '#06b6d4',
-          borderColor: 'rgba(255, 255, 255, 0.15)',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#ffffff',
+          titleColor: isDark ? '#06b6d4' : '#0284c7',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#e2e8f0',
           borderWidth: 1,
           padding: 12,
           callbacks: {
@@ -750,7 +785,7 @@ function renderCharts() {
           '#ec4899', '#f43f5e', '#a855f7', '#64748b', '#14b8a6'
         ],
         borderWidth: 2,
-        borderColor: '#0f172a'
+        borderColor: isDark ? '#0f172a' : '#ffffff'
       }]
     },
     options: {
@@ -759,8 +794,10 @@ function renderCharts() {
       plugins: {
         legend: { position: 'right', labels: { color: textColor, font: { size: 11, family: 'Plus Jakarta Sans' } } },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          borderColor: 'rgba(255, 255, 255, 0.15)',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#ffffff',
+          titleColor: isDark ? '#06b6d4' : '#0284c7',
+          bodyColor: isDark ? '#f8fafc' : '#0f172a',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#e2e8f0',
           borderWidth: 1,
           padding: 12,
           callbacks: {
@@ -803,8 +840,10 @@ function renderCharts() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          borderColor: 'rgba(255, 255, 255, 0.15)',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#ffffff',
+          titleColor: isDark ? '#06b6d4' : '#0284c7',
+          bodyColor: isDark ? '#f8fafc' : '#0f172a',
+          borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : '#e2e8f0',
           borderWidth: 1,
           padding: 12,
           callbacks: {
@@ -855,8 +894,10 @@ function renderCharts() {
       plugins: {
         legend: { labels: { color: textColor, font: { family: 'Plus Jakarta Sans' } } },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          borderColor: 'rgba(16, 185, 129, 0.4)',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#ffffff',
+          titleColor: isDark ? '#06b6d4' : '#0284c7',
+          bodyColor: isDark ? '#f8fafc' : '#0f172a',
+          borderColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#e2e8f0',
           borderWidth: 1,
           padding: 12,
           callbacks: {
