@@ -12,6 +12,40 @@ if "%TARGET_DIR:~-1%"=="\" set "TARGET_DIR=%TARGET_DIR:~0,-1%"
 
 cd /d "%TARGET_DIR%"
 
+REM --- BUOC 0: Dong bo file Excel tu OneDrive vao thu muc du an ---
+echo Dang kiem tra va dong bo file Excel moi nhat tu OneDrive...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$candidates = @(" ^
+    "    'D:\OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx'," ^
+    "    (Join-Path $env:OneDriveCommercial 'Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx')," ^
+    "    (Join-Path $env:OneDrive 'Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx')," ^
+    "    (Join-Path $env:USERPROFILE 'OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx')," ^
+    "    (Join-Path $env:USERPROFILE 'OneDrive\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx')" ^
+    ");" ^
+    "$dst = Join-Path '%TARGET_DIR%' 'THEO DOI HOP DONG-2_Optimized.xlsx';" ^
+    "$synced = $false;" ^
+    "foreach ($src in $candidates) {" ^
+    "    if ($src -and (Test-Path -LiteralPath $src)) {" ^
+    "        try {" ^
+    "            $srcTime = (Get-Item -LiteralPath $src).LastWriteTimeUtc;" ^
+    "            $dstTime = if (Test-Path -LiteralPath $dst) { (Get-Item -LiteralPath $dst).LastWriteTimeUtc } else { [DateTime]::MinValue };" ^
+    "            if ($srcTime -gt $dstTime -or -not (Test-Path -LiteralPath $dst)) {" ^
+    "                Copy-Item -LiteralPath $src -Destination $dst -Force;" ^
+    "                Write-Host ('[OK] Da dong bo file Excel moi nhat tu OneDrive (' + (Get-Item -LiteralPath $src).LastWriteTime + ')') -ForegroundColor Green;" ^
+    "            } else {" ^
+    "                Write-Host '[OK] File Excel da la ban moi nhat.' -ForegroundColor Cyan;" ^
+    "            }" ^
+    "            $synced = $true;" ^
+    "            break;" ^
+    "        } catch {" ^
+    "            Write-Host ('[CANH BAO] Khong the copy tu ' + $src + ': ' + $_.Exception.Message) -ForegroundColor Yellow;" ^
+    "        }" ^
+    "    }" ^
+    "}" ^
+    "if (-not $synced) {" ^
+    "    Write-Host '[INFO] Khong tim thay thu muc OneDrive hoac file tren OneDrive, giu nguyen file hien tai.' -ForegroundColor Gray;" ^
+    "}"
+
 REM --- BUOC 1: Dong bo code voi GitHub (Pull + Push) ---
 git --version >nul 2>&1
 if not errorlevel 1 (

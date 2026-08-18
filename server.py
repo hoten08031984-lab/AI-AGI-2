@@ -90,9 +90,25 @@ def format_ngay_hd(val):
 
 PORT = 8080
 DIRECTORY = BASE_DIR
-SOURCE_EXCEL_PATH = r"D:\OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"
-EXCEL_PATH = os.path.join(BASE_DIR, "THEO DOI HOP DONG-2_Optimized.xlsx")
+EXCEL_FILENAME = "THEO DOI HOP DONG-2_Optimized.xlsx"
+EXCEL_PATH = os.path.join(BASE_DIR, EXCEL_FILENAME)
 JS_DATA_PATH = os.path.join(BASE_DIR, "dashboard_data.js")
+
+def find_source_excel():
+    """Tìm đường dẫn file Excel trên OneDrive ở các vị trí phổ biến."""
+    candidates = [
+        r"D:\OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx",
+        os.path.join(os.environ.get('OneDriveCommercial', ''), r"Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"),
+        os.path.join(os.environ.get('OneDrive', ''), r"Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"),
+        os.path.join(os.environ.get('USERPROFILE', ''), r"OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"),
+        os.path.join(os.environ.get('USERPROFILE', ''), r"OneDrive\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"),
+    ]
+    for p in candidates:
+        if p and os.path.exists(p):
+            return p
+    return None
+
+SOURCE_EXCEL_PATH = find_source_excel() or r"D:\OneDrive - SABECO\Công Việc\0 -THANH TOÁN THÁNG HD\THEO DOI HOP DONG-2_Optimized.xlsx"
 
 last_mtime = 0
 last_check_time = 0
@@ -100,11 +116,12 @@ extract_lock = threading.Lock()
 
 def sync_from_source_excel(force=False):
     """Tự động đồng bộ và chép đè file Excel từ đường dẫn OneDrive nếu tồn tại."""
-    if not SOURCE_EXCEL_PATH or not os.path.exists(SOURCE_EXCEL_PATH):
-        log.warning(f"Không tìm thấy file nguồn: {SOURCE_EXCEL_PATH}")
+    src = find_source_excel()
+    if not src or not os.path.exists(src):
+        log.warning(f"Không tìm thấy file nguồn OneDrive.")
         return False
     try:
-        mtime_src = os.path.getmtime(SOURCE_EXCEL_PATH)
+        mtime_src = os.path.getmtime(src)
         mtime_dst = os.path.getmtime(EXCEL_PATH) if os.path.exists(EXCEL_PATH) else 0
 
         if force or mtime_src > mtime_dst or not os.path.exists(EXCEL_PATH):
@@ -113,15 +130,15 @@ def sync_from_source_excel(force=False):
 
             # Try shutil.copy2 first
             try:
-                shutil.copy2(SOURCE_EXCEL_PATH, tmp_path)
+                shutil.copy2(src, tmp_path)
                 copied = True
             except Exception:
                 pass
 
-            # Fallback to binary stream if shutil failed
+            # Fallback to binary stream
             if not copied:
                 try:
-                    with open(SOURCE_EXCEL_PATH, 'rb') as f_src:
+                    with open(src, 'rb') as f_src:
                         data = f_src.read()
                     with open(tmp_path, 'wb') as f_dst:
                         f_dst.write(data)
@@ -129,16 +146,72 @@ def sync_from_source_excel(force=False):
                 except Exception as e_bin:
                     log.warning(f"Không thể đọc file từ OneDrive: {e_bin}")
 
-            # Verify temp file size (> 10KB) before atomic replace
             if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 10000:
+                if os.path.exists(EXCEL_PATH):
+                    try: os.remove(EXCEL_PATH)
+                    except: pass
                 os.replace(tmp_path, EXCEL_PATH)
-                log.info(f"Đã đồng bộ chép đè file Excel an toàn từ OneDrive (Force={force}):\n  -> {SOURCE_EXCEL_PATH}")
+                log.info(f"Đã đồng bộ chép đè file Excel mới nhất từ OneDrive:\n  -> {src}")
                 return True
             elif os.path.exists(tmp_path):
                 os.remove(tmp_path)
     except Exception as e:
         log.warning(f"Lỗi khi chép đè file Excel từ OneDrive: {e}")
     return False
+
+def read_excel_via_powershell(abs_path):
+    """Đọc dữ liệu Excel qua PowerShell COM Bridge (hỗ trợ 100% file mã hóa DRM / Sensitivity Label)."""
+    import subprocess
+    
+    full_path = os.path.abspath(abs_path).replace("'", "''")
+    json_out = os.path.join(BASE_DIR, "_temp_extracted_data.json").replace("'", "''")
+    ps_script = f"""
+$ErrorActionPreference = 'SilentlyContinue'
+$excel = New-Object -ComObject Excel.Application
+$excel.Visible = $true
+$excel.DisplayAlerts = $false
+$excel.ScreenUpdating = $false
+$excel.AutomationSecurity = 1
+$wb = $excel.Workbooks.Open('{full_path}', 0, $true)
+Start-Sleep -Milliseconds 800
+$ws = $wb.Sheets.Item('CHI')
+$usedRange = $ws.UsedRange
+$data = $usedRange.Value2
+$wb.Close($false)
+$excel.Quit()
+[System.Runtime.InteropServices.Marshal]::ReleaseComObject($excel) | Out-Null
+
+$rows = @()
+$maxR = $data.GetLength(0)
+$maxC = $data.GetLength(1)
+for ($r = 1; $r -le $maxR; $r++) {{
+    $row = @()
+    for ($c = 1; $c -le $maxC; $c++) {{
+        $val = $data[$r, $c]
+        $row += $val
+    }}
+    $rows += ,$row
+}}
+$json = $rows | ConvertTo-Json -Depth 5 -Compress
+[System.IO.File]::WriteAllText('{json_out}', $json, [System.Text.Encoding]::UTF8)
+"""
+    try:
+        cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script]
+        proc = subprocess.run(cmd, capture_output=True, timeout=30)
+        if os.path.exists(json_out):
+            with open(json_out, 'r', encoding='utf-8-sig') as f:
+                vals = json.load(f)
+            try: os.remove(json_out)
+            except: pass
+            if vals and len(vals) > 0:
+                log.info(f"  -> Đọc thành công qua PowerShell COM Bridge ({len(vals)} dòng).")
+                return vals
+    except Exception as e_ps:
+        log.warning(f"  -> PowerShell COM Bridge gặp lỗi: {e_ps}")
+        if os.path.exists(json_out):
+            try: os.remove(json_out)
+            except: pass
+    return None
 
 def extract_excel_data(force=False):
     global last_mtime, last_check_time
@@ -167,7 +240,7 @@ def extract_excel_data(force=False):
         vals = None
         abs_src = os.path.abspath(EXCEL_PATH)
 
-        # --- Strategy: Try openpyxl FIRST (fast, no COM), fall back to win32com ---
+        # 1. Strategy 1: openpyxl (nhanh, chuẩn cho file .xlsx thông thường)
         try:
             wb_ox = openpyxl.load_workbook(abs_src, data_only=True)
             if 'CHI' in wb_ox.sheetnames:
@@ -176,48 +249,51 @@ def extract_excel_data(force=False):
                 log.info(f"  -> Đọc thành công bằng openpyxl.")
             wb_ox.close()
         except Exception as e_ox:
-            log.warning(f"  -> openpyxl không đọc được ({e_ox}), thử win32com...")
+            log.info(f"  -> openpyxl không đọc được ({e_ox}), chuyển sang PowerShell COM Bridge...")
 
-        # If openpyxl failed (e.g. Encrypted/OLE2 format), use win32com DispatchEx with retry backoff
+        # 2. Strategy 2: PowerShell COM Bridge (tương thích 100% DRM / Sensitivity Label của SABECO)
+        if not vals:
+            vals = read_excel_via_powershell(abs_src)
+
+        # 3. Strategy 3: win32com fallback
         if not vals:
             try:
                 import pythoncom
                 import win32com.client as win32
 
-                for attempt in range(1, 6):
-                    try:
-                        pythoncom.CoInitialize()
-                        _excel = win32.DispatchEx('Excel.Application')
-                        _excel.Visible = False
-                        _excel.DisplayAlerts = False
-                        _excel.AutomationSecurity = 1
-                        try:
-                            _wb = _excel.Workbooks.Open(abs_src, 0, True)
-                            ws = _wb.Sheets('CHI')
-                            vals = ws.UsedRange.Value
-                            log.info(f"  -> Đọc thành công bằng win32com (Lần {attempt}, {len(vals) if vals else 0} dòng).")
-                            try: _wb.Close(False)
-                            except: pass
-                            break
-                        finally:
-                            try: _excel.Quit()
-                            except: pass
-                            pythoncom.CoUninitialize()
-                    except Exception as e_attempt:
-                        log.warning(f"  -> Lần thử {attempt}/5 đọc win32com (Excel đang bận): {e_attempt}. Đang thử lại sau 1.5s...")
-                        time.sleep(1.5)
+                pythoncom.CoInitialize()
+                _excel = win32.Dispatch('Excel.Application')
+                _excel.Visible = True
+                _excel.DisplayAlerts = False
+                _excel.AutomationSecurity = 1
+                try:
+                    _wb = _excel.Workbooks.Open(abs_src, 0, True)
+                    time.sleep(1)
+                    ws = _wb.Sheets('CHI')
+                    vals = ws.UsedRange.Value
+                    log.info(f"  -> Đọc thành công bằng win32com ({len(vals) if vals else 0} dòng).")
+                    try: _wb.Close(False)
+                    except: pass
+                finally:
+                    try: _excel.Quit()
+                    except: pass
+                    pythoncom.CoUninitialize()
             except Exception as e_win32:
                 log.error(f"  -> win32com không đọc được dữ liệu: {e_win32}")
-            except ImportError:
-                log.info(f"  -> win32com không khả dụng, bỏ qua.")
-                log.error(f"  -> Lỗi win32com: {e_com}")
 
         if not vals:
             log.error(f"  -> Không đọc được dữ liệu Excel từ bất kỳ phương thức nào.")
             return False
 
-        rows = [list(r) for r in vals if r and any(x is not None for x in r)]
-        data = rows[1:]
+        clean_rows = []
+        for r in vals:
+            if isinstance(r, dict) and 'value' in r:
+                clean_rows.append(r['value'])
+            elif isinstance(r, (list, tuple)):
+                clean_rows.append(list(r))
+
+        rows = [r for r in clean_rows if r and any(x is not None for x in r)]
+        data = rows[1:] if len(rows) > 0 else []
             
         processed_items = []
         for idx, r in enumerate(data):
