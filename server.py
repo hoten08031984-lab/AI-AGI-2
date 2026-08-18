@@ -428,6 +428,25 @@ def kill_old_server_on_port(port):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Dashboard Chi Phi Server')
+    parser.add_argument('--sync-only', action='store_true', help='Chỉ đồng bộ file từ OneDrive và cập nhật dữ liệu JS rồi thoát')
+    args = parser.parse_args()
+
+    if args.sync_only:
+        log.info(f"=== Đang thực hiện đồng bộ file từ OneDrive ===")
+        synced = sync_from_source_excel(force=True)
+        if synced:
+            log.info("[OK] Đã sao chép thành công file Excel mới nhất từ OneDrive!")
+        else:
+            log.info("[INFO] Không có thay đổi mới hoặc không tìm thấy OneDrive.")
+        
+        log.info("Đang trích xuất dữ liệu sang Dashboard...")
+        success = extract_excel_data(force=True)
+        if success:
+            log.info("[OK] Đã cập nhật xong dữ liệu Dashboard!")
+        sys.exit(0 if (synced or success) else 0)
+
     log.info(f"=== Dashboard Server khởi động ===")
     log.info(f"Thư mục: {BASE_DIR}")
     log.info(f"File Excel: {EXCEL_PATH}")
