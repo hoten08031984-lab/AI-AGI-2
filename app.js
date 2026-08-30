@@ -80,13 +80,157 @@ const formatDateDDMMYYYY = (val) => {
   return s;
 };
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
+// ============================================================
+// AUTHENTICATION & ACCESS CONTROL CONFIGURATION
+// ============================================================
+const AUTH_CONFIG = {
+  sessionDurationHours: 8,
+  storageKey: 'theoDoiChiPhi_auth_session_v1',
+  users: [
+    { username: 'admin', pass: 'khontb', name: 'Quản Trị Viên (admin)' }
+  ]
+};
+
+let isDashboardInitialized = false;
+
+/**
+ * Khởi tạo ứng dụng Dashboard (Chỉ chạy sau khi xác thực thành công)
+ */
+function initDashboard() {
   initTheme();
   initFilterDropdowns();
   setupEventListeners();
   updateSyncBadge();
   applyFilters();
+}
+
+/**
+ * 1. Kiểm tra phiên đăng nhập lưu trong localStorage khi nạp trang
+ */
+function checkAuthSession() {
+  const overlay = document.getElementById('auth-gateway-overlay');
+  const userBadge = document.getElementById('current-user-badge');
+  const sessionRaw = localStorage.getItem(AUTH_CONFIG.storageKey);
+
+  if (sessionRaw) {
+    try {
+      const session = JSON.parse(sessionRaw);
+      const now = Date.now();
+      if (session && session.expiry && now < session.expiry) {
+        // Phiên hợp lệ (< 8 tiếng) -> Ẩn Overlay Đăng Nhập & Mở Dashboard
+        if (overlay) overlay.classList.add('auth-hidden');
+        if (userBadge) userBadge.textContent = session.username || 'admin';
+        if (!isDashboardInitialized) {
+          isDashboardInitialized = true;
+          initDashboard();
+        }
+        return true;
+      }
+    } catch (e) {
+      console.warn('Lỗi kiểm tra session auth:', e);
+    }
+  }
+
+  // Chưa đăng nhập hoặc hết hạn phiên -> Hiện Cổng Đăng Nhập
+  if (overlay) {
+    overlay.classList.remove('auth-hidden');
+    const uInput = document.getElementById('auth-username');
+    if (uInput) setTimeout(() => uInput.focus(), 300);
+  }
+  return false;
+}
+
+/**
+ * 2. Xử lý sự kiện Submit Form Đăng Nhập
+ */
+function handleLoginSubmit(event) {
+  if (event) event.preventDefault();
+
+  const uInput = document.getElementById('auth-username');
+  const pInput = document.getElementById('auth-password');
+  const errorAlert = document.getElementById('auth-error-alert');
+  const errorText = document.getElementById('auth-error-text');
+  const overlay = document.getElementById('auth-gateway-overlay');
+  const userBadge = document.getElementById('current-user-badge');
+
+  if (!uInput || !pInput) return;
+
+  const username = uInput.value.trim();
+  const password = pInput.value;
+
+  if (errorAlert) errorAlert.style.display = 'none';
+
+  // So khớp thông tin đăng nhập trong AUTH_CONFIG.users
+  const matchedUser = AUTH_CONFIG.users.find(
+    u => u.username.toLowerCase() === username.toLowerCase() && u.pass === password
+  );
+
+  if (matchedUser) {
+    // Đăng nhập thành công -> Lưu session 8 tiếng vào localStorage
+    const expiryTime = Date.now() + (AUTH_CONFIG.sessionDurationHours * 60 * 60 * 1000);
+    const sessionData = {
+      username: matchedUser.username,
+      name: matchedUser.name,
+      loginAt: Date.now(),
+      expiry: expiryTime
+    };
+    localStorage.setItem(AUTH_CONFIG.storageKey, JSON.stringify(sessionData));
+
+    if (userBadge) userBadge.textContent = matchedUser.username;
+
+    // Ẩn Overlay Đăng Nhập
+    if (overlay) {
+      overlay.classList.add('auth-hidden');
+    }
+
+    pInput.value = '';
+
+    // Khởi tạo Dashboard nếu chưa chạy
+    if (!isDashboardInitialized) {
+      isDashboardInitialized = true;
+      initDashboard();
+    }
+  } else {
+    // Thất bại -> Hiển thị cảnh báo lỗi
+    if (errorAlert && errorText) {
+      errorText.textContent = 'Tên đăng nhập hoặc mật khẩu không chính xác!';
+      errorAlert.style.display = 'flex';
+      pInput.focus();
+      pInput.select();
+    }
+  }
+}
+
+/**
+ * 3. Bật / Tắt Ẩn Hiện Mật Khẩu
+ */
+function toggleAuthPasswordVisibility() {
+  const pInput = document.getElementById('auth-password');
+  const eyeIcon = document.getElementById('auth-pwd-eye');
+  if (!pInput || !eyeIcon) return;
+
+  if (pInput.type === 'password') {
+    pInput.type = 'text';
+    eyeIcon.innerHTML = '<i class="far fa-eye-slash"></i>';
+  } else {
+    pInput.type = 'password';
+    eyeIcon.innerHTML = '<i class="far fa-eye"></i>';
+  }
+}
+
+/**
+ * 4. Xử lý Đăng Xuất (Logout)
+ */
+function handleLogout() {
+  if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) {
+    localStorage.removeItem(AUTH_CONFIG.storageKey);
+    window.location.reload();
+  }
+}
+
+// Tự động kiểm tra phiên khi nạp DOM xong
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuthSession();
 });
 
 // Theme Switcher System

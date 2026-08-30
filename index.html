@@ -24,6 +24,64 @@
 </head>
 <body>
 
+  <!-- ========================================== -->
+  <!-- AUTHENTICATION SECURITY GATEWAY OVERLAY    -->
+  <!-- ========================================== -->
+  <div id="auth-gateway-overlay" class="auth-gateway-overlay">
+    <div class="auth-card-backdrop"></div>
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <div class="auth-badge-status">
+          <span class="auth-status-dot"></span>
+          <span>Đăng nhập để truy cập hệ thống</span>
+        </div>
+        <h2 class="auth-title"><i class="fas fa-shield-halved" style="color:#2563eb; margin-right:6px;"></i> PHÂN TÍCH CHI PHÍ HỢP ĐỒNG</h2>
+        <p class="auth-subtitle">Cổng xác thực an toàn • Dự án AI AGI_2</p>
+      </div>
+
+      <form id="auth-form" onsubmit="handleLoginSubmit(event)">
+        <!-- Tên đăng nhập -->
+        <div class="auth-input-group">
+          <label class="auth-label" for="auth-username">
+            <span class="auth-label-icon"><i class="fas fa-user"></i></span> TÊN ĐĂNG NHẬP
+          </label>
+          <div class="auth-input-wrapper">
+            <input type="text" id="auth-username" class="auth-input" placeholder="Nhập tên đăng nhập (ví dụ: admin)" autocomplete="username" required autofocus>
+          </div>
+        </div>
+
+        <!-- Mật khẩu & Nút ẩn/hiện -->
+        <div class="auth-input-group">
+          <label class="auth-label" for="auth-password">
+            <span class="auth-label-icon"><i class="fas fa-lock"></i></span> MẬT KHẨU
+          </label>
+          <div class="auth-input-wrapper">
+            <input type="password" id="auth-password" class="auth-input" placeholder="Nhập mật khẩu..." autocomplete="current-password" required>
+            <button type="button" class="auth-toggle-pwd" onclick="toggleAuthPasswordVisibility()" title="Ẩn/Hiện mật khẩu">
+              <span id="auth-pwd-eye"><i class="far fa-eye"></i></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Khung hiển thị thông báo lỗi -->
+        <div id="auth-error-alert" class="auth-error-alert" style="display: none;">
+          <span class="auth-error-icon"><i class="fas fa-exclamation-triangle"></i></span>
+          <span id="auth-error-text">Tên đăng nhập hoặc mật khẩu không chính xác!</span>
+        </div>
+
+        <!-- Nút gửi đăng nhập -->
+        <button type="submit" id="auth-btn-submit" class="auth-btn-submit">
+          <span>ĐĂNG NHẬP HỆ THỐNG</span>
+          <span class="auth-btn-arrow"><i class="fas fa-arrow-right"></i></span>
+        </button>
+      </form>
+
+      <div class="auth-card-footer">
+        <div>🔒 Bảo mật hệ thống nội bộ • Phiên tự động lưu 8 giờ</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Top Header Navigation -->
   <header class="app-header">
     <div class="brand">
@@ -42,11 +100,18 @@
     </div>
     
     <div class="header-actions">
+      <div class="user-badge" id="user-badge-wrap" style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(37, 99, 235, 0.1); border: 1px solid rgba(37, 99, 235, 0.25); border-radius: 20px; font-size: 0.82rem; font-weight: 600; color: var(--accent-blue);">
+        <i class="fas fa-user-circle"></i>
+        <span id="current-user-badge">admin</span>
+      </div>
       <button class="btn btn-theme-toggle" id="btn-theme-toggle" title="Chuyển đổi giao diện Sáng / Tối">
         <i class="fas fa-moon" id="icon-theme"></i> <span id="text-theme">Giao Diện Tối</span>
       </button>
       <button class="btn btn-refresh" id="btn-refresh" title="Kiểm tra và làm mới dữ liệu từ file Excel">
         <i class="fas fa-sync-alt" id="icon-refresh"></i> Làm Mới Dữ Liệu
+      </button>
+      <button class="btn btn-logout" id="btn-logout" onclick="handleLogout()" title="Đăng xuất khỏi hệ thống" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444;">
+        <i class="fas fa-sign-out-alt"></i> Đăng Xuất
       </button>
     </div>
   </header>
