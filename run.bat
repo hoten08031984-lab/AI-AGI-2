@@ -30,17 +30,17 @@ REM --- BUOC 2: Kiem tra va Tu dong tao venv neu copy sang may/thu muc khac ---
 set "NEED_CREATE_VENV=0"
 if not exist "%VENV_DIR%\Scripts\python.exe" set "NEED_CREATE_VENV=1"
 
-if "%NEED_CREATE_VENV%"=="0" (
+if "!NEED_CREATE_VENV!"=="0" (
     "%VENV_DIR%\Scripts\python.exe" -c "import os, sys; sys.exit(0 if os.path.normpath(sys.prefix).lower() == os.path.normpath(r'%VENV_DIR%').lower() else 1)" >nul 2>&1
     if errorlevel 1 (
-        echo [INFO] Phat hien du an duoc copy sang vi tri moi (%TARGET_DIR%).
+        echo [INFO] Phat hien du an duoc copy sang vi tri moi.
         echo Dang tu dong khoi tao lai venv de tuong thich 100%%...
         rd /s /q "%VENV_DIR%" >nul 2>&1
         set "NEED_CREATE_VENV=1"
     )
 )
 
-if "%NEED_CREATE_VENV%"=="1" (
+if "!NEED_CREATE_VENV!"=="1" (
     echo Dang tao Virtual Environment venv moi...
     python -m venv "%VENV_DIR%"
     if errorlevel 1 (
@@ -64,7 +64,6 @@ echo.
 echo [2/3] Dang dong bo voi GitHub...
 git --version >nul 2>&1
 if not errorlevel 1 (
-    REM Keo code moi nhat tu GitHub
     git pull origin main >nul 2>&1
     if not errorlevel 1 (
         echo [OK] Da cap nhat code moi nhat tu GitHub!
@@ -72,14 +71,13 @@ if not errorlevel 1 (
         echo [INFO] Khong the ket noi GitHub de pull, su dung phien ban hien tai.
     )
     
-    REM Kiem tra co thay doi chua commit khong
     set "HAS_CHANGES=0"
     for /f %%i in ('git status --porcelain 2^>nul') do set "HAS_CHANGES=1"
     
     if "!HAS_CHANGES!"=="1" (
         echo [INFO] Phat hien file Excel hoac code moi. Dang day len GitHub...
         git add -A >nul 2>&1
-        git commit -m "Tu dong dong bo dashboard [%date% %time:~0,8%]" >nul 2>&1
+        git commit -m "Tu dong dong bo dashboard" >nul 2>&1
         git push origin main >nul 2>&1
         if not errorlevel 1 (
             echo [OK] Da dong bo toan bo len GitHub thanh cong!
@@ -100,7 +98,7 @@ start "" "http://localhost:8080"
 echo.
 echo ============================================================
 echo   [OK] SERVER DANG CHAY NGAM TAI http://localhost:8080
-echo   (Nhan phim bat ky hoac dong cua so nay, Server van chay ngam)
+echo   - Nhan phim bat ky hoac dong cua so nay, Server van chay ngam
 echo ============================================================
 echo.
 pause
