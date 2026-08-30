@@ -94,9 +94,13 @@ if not errorlevel 1 (
 REM --- BUOC 6: Mo Trinh Duyet va Khoi dong Server ---
 echo.
 echo [3/3] Dang khoi dong Server va mo Dashboard tren http://localhost:8080 ...
-start "" /B "%VENV_DIR%\Scripts\python.exe" "%TARGET_DIR%\server.py"
+start "" "%VENV_DIR%\Scripts\pythonw.exe" "%TARGET_DIR%\server.py"
 start "" "http://localhost:8080"
 
 echo.
-echo [OK] Server dang chay ngam tren port 8080.
+echo ============================================================
+echo   [OK] SERVER DANG CHAY NGAM TAI http://localhost:8080
+echo   (Nhan phim bat ky hoac dong cua so nay, Server van chay ngam)
+echo ============================================================
+echo.
 pause
