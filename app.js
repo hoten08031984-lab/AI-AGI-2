@@ -184,7 +184,7 @@ function updateDependentDropdowns() {
     .sort((a, b) => {
       const parse = s => { const p = s.split('/'); return p.length === 2 ? [+p[1], +p[0]] : [0,0]; };
       const [ya, ma] = parse(a); const [yb, mb] = parse(b);
-      return ya !== yb ? ya - yb : ma - mb;
+      return ya !== yb ? yb - ya : mb - ma;
     });
   window._validThangs = validThangs;
   renderMsOptions('thang', validThangs, '-- Tất Cả Tháng --', 'tháng');
