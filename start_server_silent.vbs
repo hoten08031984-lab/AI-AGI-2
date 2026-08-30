@@ -3,9 +3,13 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 strPath = fso.GetParentFolderName(WScript.ScriptFullName)
 WshShell.CurrentDirectory = strPath
 
-' Tim pythonw.exe tu PATH
-Set env = WshShell.Environment("Process")
-pythonw = "pythonw.exe"
+' Tim pythonw.exe tu venv hoac PATH
+venvPythonw = fso.BuildPath(strPath, "venv\Scripts\pythonw.exe")
+If fso.FileExists(venvPythonw) Then
+    pythonw = venvPythonw
+Else
+    pythonw = "pythonw.exe"
+End If
 
 ' Dung duong dan tuyet doi
 serverScript = fso.BuildPath(strPath, "server.py")

@@ -168,7 +168,7 @@ def read_excel_via_powershell(abs_path):
     ps_script = f"""
 $ErrorActionPreference = 'SilentlyContinue'
 $excel = New-Object -ComObject Excel.Application
-$excel.Visible = $true
+$excel.Visible = $false
 $excel.DisplayAlerts = $false
 $excel.ScreenUpdating = $false
 $excel.AutomationSecurity = 1
@@ -263,7 +263,7 @@ def extract_excel_data(force=False):
 
                 pythoncom.CoInitialize()
                 _excel = win32.Dispatch('Excel.Application')
-                _excel.Visible = True
+                _excel.Visible = False
                 _excel.DisplayAlerts = False
                 _excel.AutomationSecurity = 1
                 try:
