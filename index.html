@@ -39,6 +39,25 @@
         <p class="auth-subtitle">Cổng xác thực an toàn • Dự án AI AGI_2</p>
       </div>
 
+      <!-- Khung hiển thị thời gian cập nhật dữ liệu -->
+      <div id="auth-sync-status" class="auth-sync-status">
+        <div class="auth-sync-header">
+          <span class="auth-sync-pulse"></span>
+          <span class="auth-sync-title"><i class="fas fa-database" style="color: #10b981; margin-right: 6px;"></i> DỮ LIỆU HỆ THỐNG</span>
+          <span class="auth-sync-badge-rows" id="auth-sync-rows">1.733 mục</span>
+        </div>
+        <div class="auth-sync-details">
+          <div class="auth-sync-row">
+            <span class="auth-sync-label"><i class="far fa-calendar-check" style="color:#0284c7; width:16px;"></i> Dữ liệu chi phí đến:</span>
+            <span class="auth-sync-value" id="auth-data-cutoff">Đang nạp dữ liệu...</span>
+          </div>
+          <div class="auth-sync-row">
+            <span class="auth-sync-label"><i class="far fa-clock" style="color:#10b981; width:16px;"></i> Lần đồng bộ gần nhất:</span>
+            <span class="auth-sync-value" id="auth-sync-time">Đang nạp dữ liệu...</span>
+          </div>
+        </div>
+      </div>
+
       <form id="auth-form" onsubmit="handleLoginSubmit(event)">
         <!-- Tên đăng nhập -->
         <div class="auth-input-group">

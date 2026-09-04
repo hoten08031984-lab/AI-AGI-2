@@ -50,6 +50,19 @@ const formatDateDDMMYYYY = (val) => {
   let s = String(val).trim();
   if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s;
 
+  // Xử lý ngày định dạng số Serial của Excel (ví dụ: 45070, 46265)
+  if (/^\d{5}$/.test(s)) {
+    const serial = parseInt(s, 10);
+    if (serial > 30000 && serial < 60000) {
+      const utcDays = serial - 25569;
+      const dObj = new Date(utcDays * 86400 * 1000);
+      const dd = String(dObj.getUTCDate()).padStart(2, '0');
+      const mm = String(dObj.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = dObj.getUTCFullYear();
+      return `${dd}-${mm}-${yyyy}`;
+    }
+  }
+
   const isoMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
   if (isoMatch) {
     const yyyy = isoMatch[1];
@@ -108,6 +121,7 @@ function initDashboard() {
  * 1. Kiểm tra phiên đăng nhập lưu trong localStorage khi nạp trang
  */
 function checkAuthSession() {
+  updateAuthSyncStatus();
   const overlay = document.getElementById('auth-gateway-overlay');
   const userBadge = document.getElementById('current-user-badge');
   const sessionRaw = localStorage.getItem(AUTH_CONFIG.storageKey);
@@ -228,7 +242,135 @@ function handleLogout() {
   }
 }
 
-// Tự động kiểm tra phiên khi nạp DOM xong
+/**
+ * 5. Cập nhật thông tin mốc ngày dữ liệu & thời gian đồng bộ trên Thẻ Đăng Nhập
+ */
+function updateAuthSyncStatus() {
+  const syncTimeEl = document.getElementById('auth-sync-time');
+  const cutoffEl = document.getElementById('auth-data-cutoff');
+  const rowsBadgeEl = document.getElementById('auth-sync-rows');
+  if (!syncTimeEl && !cutoffEl && !rowsBadgeEl) return;
+
+  const syncInfo = window.SYNC_INFO || {};
+  const data = Array.isArray(window.RAW_DATA) ? window.RAW_DATA : (allData || []);
+
+  // 1. Tổng số dòng dữ liệu
+  const totalRows = syncInfo.total_rows || data.length;
+  if (rowsBadgeEl && totalRows > 0) {
+    rowsBadgeEl.textContent = `${totalRows.toLocaleString('vi-VN')} mục chi`;
+  }
+
+  // 2. Thời điểm hệ thống đồng bộ file Excel
+  let syncTimeText = 'Mới nhất';
+  if (syncInfo.last_updated) {
+    const rawTime = syncInfo.last_updated; // ví dụ: "2026-09-01 22:50:50"
+    const m = rawTime.match(/^(\d{4})[-/](\d{2})[-/](\d{2})\s+(\d{2}):(\d{2})(:(\d{2}))?/);
+    if (m) {
+      const yyyy = m[1], mm = m[2], dd = m[3], hh = m[4], min = m[5], ss = m[7] || '00';
+      syncTimeText = `${hh}:${min}:${ss} - ${dd}/${mm}/${yyyy}`;
+    } else {
+      syncTimeText = rawTime;
+    }
+  }
+  if (syncTimeEl) syncTimeEl.textContent = syncTimeText;
+
+  // 3. Mốc dữ liệu chi phí (ngày phát sinh / hóa đơn / thanh toán mới nhất)
+  let cutoffText = '';
+  if (syncInfo.latest_record_date) {
+    cutoffText = `Ngày ${syncInfo.latest_record_date}`;
+    if (syncInfo.latest_period) {
+      cutoffText += ` (${syncInfo.latest_period})`;
+    }
+  } else {
+    cutoffText = getLatestDataCutoff(data);
+  }
+  if (cutoffEl) cutoffEl.textContent = cutoffText;
+}
+
+/**
+ * Tính toán mốc ngày chứng từ chi phí mới nhất từ danh sách dữ liệu
+ */
+function getLatestDataCutoff(data) {
+  if (!data || data.length === 0) return 'Chưa có dữ liệu';
+
+  let maxDateObj = null;
+  let maxMonthScore = 0;
+  let maxMonthPeriod = '';
+  let maxYear = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+
+    if (item.nam && !isNaN(item.nam) && Number(item.nam) > maxYear) {
+      maxYear = Number(item.nam);
+    }
+
+    [item.ngay_hd, item.ngay_tt].forEach(val => {
+      if (!val) return;
+      let dObj = null;
+      const s = String(val).trim();
+
+      if (/^\d{5}$/.test(s)) {
+        const serial = parseInt(s, 10);
+        if (serial > 30000 && serial < 60000) {
+          const utcDays = serial - 25569;
+          dObj = new Date(utcDays * 86400 * 1000);
+        }
+      } else {
+        const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+        if (dmy) {
+          dObj = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+        } else {
+          const ymd = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+          if (ymd) {
+            dObj = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+          }
+        }
+      }
+
+      if (dObj && !isNaN(dObj.getTime())) {
+        const yr = dObj.getFullYear();
+        if (yr >= 2020 && yr <= 2035) {
+          if (!maxDateObj || dObj > maxDateObj) {
+            maxDateObj = dObj;
+          }
+        }
+      }
+    });
+
+    const t = String(item.thang || '').trim();
+    if (t.includes('/')) {
+      const parts = t.split('/');
+      if (parts.length === 2) {
+        const m = parseInt(parts[0], 10);
+        const y = parseInt(parts[1], 10);
+        if (!isNaN(m) && !isNaN(y)) {
+          const score = y * 100 + m;
+          if (score > maxMonthScore) {
+            maxMonthScore = score;
+            maxMonthPeriod = `T${String(m).padStart(2, '0')}/${y}`;
+          }
+        }
+      }
+    }
+  }
+
+  if (maxDateObj) {
+    const dd = String(maxDateObj.getDate()).padStart(2, '0');
+    const mm = String(maxDateObj.getMonth() + 1).padStart(2, '0');
+    const yyyy = maxDateObj.getFullYear();
+    const dateStr = `Ngày ${dd}/${mm}/${yyyy}`;
+    return maxMonthPeriod ? `${dateStr} (${maxMonthPeriod})` : dateStr;
+  }
+
+  if (maxMonthPeriod) {
+    return `Đến ${maxMonthPeriod}`;
+  }
+
+  return maxYear > 0 ? `Đến năm ${maxYear}` : 'Đã sẵn sàng';
+}
+
+// Tự động kiểm tra phiên và nạp mốc dữ liệu khi tải trang xong
 document.addEventListener('DOMContentLoaded', () => {
   checkAuthSession();
 });

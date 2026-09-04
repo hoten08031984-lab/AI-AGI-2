@@ -362,9 +362,51 @@ def extract_excel_data(force=False):
                 'nam': nam
             })
             
+        # Tính toán mốc ngày chi phí và kỳ tháng mới nhất
+        max_rec_date = None
+        max_month_period = ''
+        max_month_score = 0
+        import re, datetime
+
+        for item in processed_items:
+            for val in (item.get('ngay_hd'), item.get('ngay_tt')):
+                if not val:
+                    continue
+                s = str(val).strip()
+                d_obj = None
+                if s.isdigit() and 30000 < int(s) < 60000:
+                    d_obj = datetime.datetime(1899, 12, 30) + datetime.timedelta(days=int(s))
+                else:
+                    m_d = re.match(r'^(\d{1,2})[-/](\d{1,2})[-/](\d{4})', s)
+                    if m_d:
+                        p1, p2, y = int(m_d.group(1)), int(m_d.group(2)), int(m_d.group(3))
+                        if p1 > 12: d, mo = p1, p2
+                        elif p2 > 12: mo, d = p1, p2
+                        else: mo, d = p1, p2
+                        try: d_obj = datetime.datetime(y, mo, d)
+                        except: pass
+                if d_obj and 2020 <= d_obj.year <= 2035:
+                    if not max_rec_date or d_obj > max_rec_date:
+                        max_rec_date = d_obj
+
+            t = str(item.get('thang') or '').strip()
+            if '/' in t:
+                parts = t.split('/')
+                try:
+                    m_val, y_val = int(parts[0]), int(parts[1])
+                    score = y_val * 100 + m_val
+                    if score > max_month_score:
+                        max_month_score = score
+                        max_month_str = f"T{m_val:02d}/{y_val}"
+                except: pass
+
+        latest_record_date_str = max_rec_date.strftime('%d/%m/%Y') if max_rec_date else ''
+
         sync_info = {
             'last_updated': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'total_rows': len(processed_items)
+            'total_rows': len(processed_items),
+            'latest_record_date': latest_record_date_str,
+            'latest_period': max_month_str if max_month_score > 0 else ''
         }
         
         with open(JS_DATA_PATH, 'w', encoding='utf-8') as f:
